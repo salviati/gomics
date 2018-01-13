@@ -43,10 +43,11 @@ type Config struct {
 	MangaMode           bool
 	OneWide             bool
 	EmbeddedOrientation bool
-	Bookmarks           []Bookmark
 	Interpolation       int
 	ImageDiffThres      float32
 	SceneScanSkip       int
+	SmartScroll         bool
+	Bookmarks           []Bookmark
 }
 
 func (c *Config) Load(path string) error {
@@ -91,4 +92,5 @@ func (c *Config) Defaults() {
 	c.EmbeddedOrientation = true
 	c.ImageDiffThres = 0.4
 	c.SceneScanSkip = 5
+	c.SmartScroll = true
 }

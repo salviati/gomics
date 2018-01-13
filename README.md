@@ -12,6 +12,7 @@ A gtk3 comic and image archive viewer written in Go, freely available under GPL 
 - Small memory footprint.
 - Double and single-page mode.
 - Comic and manga-mode (left-to-right and right-to-left page order).
+- Smart scrolling.
 - Basic scaling modes: original size, fit to height, fit to width, best fit.
 - Image effects: horizontal flip, vertical flip.
 - Bookmarks.
@@ -28,11 +29,11 @@ Run ./make.sh.
 Arch Linux users can alternatively install the AUR package `gomics-git`.
 
 ## Shortcuts
-* Up/down or page up/down or mouse wheel up/down: previous/next page.
+* Up/down or page up/down or right/left mouse button: previous/next page.
 * Ctrl + up/down: previous/next archive.
 * Left/right: skip backward/forward (# of pages is configurable).
 * Ctrl + left/right: previous/next scene (useful for CG archives).
-* Scroll image: shift + direction keys (not implemented at the moment).
+* Scroll image: mouse wheel or shift + direction keys.
 
 ## License
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.

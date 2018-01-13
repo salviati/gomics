@@ -85,6 +85,7 @@ type GUI struct {
 	GoToScrollbar                  *gtk.Scrollbar         `build:"GoToScrollbar"`
 	InterpolationComboBoxText      *gtk.ComboBoxText      `build:"InterpolationComboBoxText"`
 	OneWideCheckButton             *gtk.CheckButton       `build:"OneWideCheckButton"`
+	SmartScrollCheckButton         *gtk.CheckButton       `build:"SmartScrollCheckButton"`
 	EmbeddedOrientationCheckButton *gtk.CheckButton       `build:"EmbeddedOrientationCheckButton"`
 	AddBookmarkMenuItem            *gtk.MenuItem          `build:"AddBookmarkMenuItem"`
 	MenuBookmarks                  *gtk.Menu              `build:"MenuBookmarks"`
@@ -327,6 +328,10 @@ func (gui *GUI) initUI() {
 		gui.SetOneWide(gui.OneWideCheckButton.GetActive())
 	})
 
+	gui.SmartScrollCheckButton.Connect("toggled", func() {
+		gui.SetSmartScroll(gui.SmartScrollCheckButton.GetActive())
+	})
+
 	gui.EmbeddedOrientationCheckButton.Connect("toggled", func() {
 		gui.SetEmbeddedOrientation(gui.EmbeddedOrientationCheckButton.GetActive())
 	})
@@ -337,19 +342,10 @@ func (gui *GUI) initUI() {
 
 	gui.ScrolledWindow.SetEvents(gui.ScrolledWindow.GetEvents() | int(gdk.BUTTON_PRESS_MASK))
 
-	gui.ScrolledWindow.Connect("scroll-event", func(_ *gtk.ScrolledWindow, e *gdk.Event) {
+	gui.ScrolledWindow.Connect("scroll-event", func(w *gtk.ScrolledWindow, e *gdk.Event) {
 		se := &gdk.EventScroll{e}
-		if se.DeltaY() > 0 {
-			gui.NextPage()
-		} else if se.DeltaY() < 0 {
-			gui.PreviousPage()
-		}
 
-		if se.DeltaX() > 0 {
-			gui.SkipForward()
-		} else if se.DeltaX() < 0 {
-			gui.SkipBackward()
-		}
+		gui.Scroll(se.DeltaX(), se.DeltaY())
 	})
 
 	// FIXME
@@ -370,35 +366,39 @@ func (gui *GUI) initUI() {
 	gui.MainWindow.Connect("key-press-event", func(_ *gtk.Window, e *gdk.Event) {
 		ke := &gdk.EventKey{e}
 
-		// FIXME: need to scroll using these depending zoom level
-		//if ke.State()&uint(gdk.GDK_SHIFT_MASK|gdk.GDK_CONTROL_MASK) != 0 {
-		//	return
-		//}
-		//shift := ke.State()&uint(gdk.GDK_SHIFT_MASK) != 0
+		shift := ke.State()&uint(gdk.GDK_SHIFT_MASK) != 0
 		ctrl := ke.State()&uint(gdk.GDK_CONTROL_MASK) != 0
 
 		switch ke.KeyVal() {
 		case gdk.KEY_Down:
 			if ctrl {
 				gui.NextArchive()
+			} else if shift {
+				gui.Scroll(0, 1)
 			} else {
 				gui.NextPage()
 			}
 		case gdk.KEY_Up:
 			if ctrl {
 				gui.PreviousArchive()
+			} else if shift {
+				gui.Scroll(0, -1)
 			} else {
 				gui.PreviousPage()
 			}
 		case gdk.KEY_Right:
 			if ctrl {
 				gui.NextScene()
+			} else if shift {
+				gui.Scroll(1, 0)
 			} else {
 				gui.SkipForward()
 			}
 		case gdk.KEY_Left:
 			if ctrl {
 				gui.PreviousScene()
+			} else if shift {
+				gui.Scroll(-1, 0)
 			} else {
 				gui.SkipBackward()
 			}

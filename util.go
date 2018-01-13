@@ -44,6 +44,16 @@ func wrap(val, low, mod int) int {
 	return val
 }
 
+func clamp(val, low, high float64) float64 {
+	if val < low {
+		val = low
+	} else if val > high {
+		val = high
+	}
+
+	return val
+}
+
 func fit(sw, sh, fw, fh int) (int, int) {
 	r := float64(sw) / float64(sh)
 

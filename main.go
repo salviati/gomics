@@ -175,6 +175,63 @@ func (gui *GUI) setPage(n int) {
 	gui.scrollToTop()
 }
 
+func (gui *GUI) Scroll(dx, dy float64) {
+	imgw, imgh := gui.GetSize()
+
+	vadj := gui.ScrolledWindow.GetVAdjustment()
+	hadj := gui.ScrolledWindow.GetHAdjustment()
+
+	vdx := vadj.GetMinimumIncrement()
+	vval := vadj.GetValue()
+	vupper := vadj.GetUpper() - float64(imgh) - 4
+	vlower := vadj.GetLower()
+
+	hdx := hadj.GetMinimumIncrement()
+	hval := hadj.GetValue()
+	hupper := hadj.GetUpper() - float64(imgw) - 4
+	hlower := hadj.GetLower()
+
+	if dy > 0 {
+		if vval >= vupper {
+			if gui.Config.SmartScroll {
+				gui.NextPage()
+			}
+		} else {
+			vadj.SetValue(clamp(vval+vdx, vlower, vupper))
+			gui.ScrolledWindow.SetVAdjustment(vadj)
+		}
+	} else if dy < 0 {
+		if vval <= vlower {
+			if gui.Config.SmartScroll {
+				gui.PreviousPage()
+			}
+		} else {
+			vadj.SetValue(clamp(vval-vdx, vlower, vupper))
+			gui.ScrolledWindow.SetVAdjustment(vadj)
+		}
+	}
+
+	if dx > 0 {
+		if hval >= hupper {
+			if gui.Config.SmartScroll {
+				// TODO scroll down a bit
+			}
+		} else {
+			hadj.SetValue(clamp(hval+hdx, hlower, hupper))
+			gui.ScrolledWindow.SetHAdjustment(hadj)
+		}
+	} else if dx < 0 {
+		if hval <= hlower {
+			if gui.Config.SmartScroll {
+				// TODO scroll up a bit
+			}
+		} else {
+			hadj.SetValue(clamp(hval-hdx, hlower, hupper))
+			gui.ScrolledWindow.SetHAdjustment(hadj)
+		}
+	}
+}
+
 func (gui *GUI) scrollToTop() {
 	vadj := gui.ScrolledWindow.GetVAdjustment()
 	vadj.SetValue(0)
@@ -185,6 +242,12 @@ func (gui *GUI) scrollToTop() {
 	gui.ScrolledWindow.SetHAdjustment(hadj)
 }
 
+/*
+func (gui *GUI) scroll(int dx, int dy) {
+	gui.ScrolledWindow.GetVAdjustment()
+	vadj.SetValue(0)
+}
+*/
 func (gui *GUI) Quit() {
 	gui.Config.WindowWidth, gui.Config.WindowHeight = gui.MainWindow.GetSize()
 
@@ -339,6 +402,10 @@ func (gui *GUI) SetOneWide(oneWide bool) {
 	gui.Config.OneWide = oneWide
 	gui.Blit()
 	gui.StatusImage()
+}
+
+func (gui *GUI) SetSmartScroll(smartScroll bool) {
+	gui.Config.SmartScroll = smartScroll
 }
 
 func (gui *GUI) SetEmbeddedOrientation(embeddedOrientation bool) {
