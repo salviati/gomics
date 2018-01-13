@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 var (
@@ -29,7 +30,7 @@ var (
 )
 
 func (gui *GUI) Loaded() bool {
-	return gui.State.Archive != nil && gui.State.ArchivePath != ""
+	return gui.State.Archive != nil && reflect.ValueOf(gui.State.Archive).IsNil() == false && gui.State.ArchivePath != ""
 }
 
 func (gui *GUI) RandomPage() {
@@ -66,6 +67,7 @@ func (gui *GUI) PreviousPage() {
 	gui.SetPage(gui.State.ArchivePos - n)
 
 	if (gui.Config.DoublePage && gui.forceSinglePage()) && gui.State.Archive.Len()-gui.State.ArchivePos > 1 {
+		// FIXME
 		gui.NextPage()
 	}
 }

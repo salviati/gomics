@@ -63,7 +63,9 @@ func (gui *GUI) Close() {
 		return
 	}
 
-	gui.State.Archive.Close()
+	if gui.State.Archive != nil {
+		gui.State.Archive.Close()
+	}
 
 	gui.State.Archive = nil
 	gui.State.ArchiveName = ""
@@ -105,13 +107,14 @@ func (gui *GUI) LoadArchive(uri string) {
 		gui.Close()
 	}
 
+	gui.State.ArchivePath = path
+	gui.State.ArchiveName = filepath.Base(path)
+
 	if gui.State.Archive, err = archive.NewArchive(path); err != nil {
 		gui.ShowError("Failed to open " + path + ": " + err.Error())
 		return
 	}
 
-	gui.State.ArchivePath = path
-	gui.State.ArchiveName = filepath.Base(path)
 	gui.setPage(0) // FIXME(utkan): this might fail.
 	os.Chdir(gui.State.ArchivePath)
 
@@ -150,6 +153,8 @@ func (gui *GUI) setPage(n int) {
 		return
 	}
 
+	gui.State.ArchivePos = n
+
 	var err error
 	gui.State.PixbufL, err = gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation)
 	if err != nil {
@@ -168,7 +173,6 @@ func (gui *GUI) setPage(n int) {
 
 	gc()
 
-	gui.State.ArchivePos = n
 	gui.Blit()
 	gui.StatusImage()
 
