@@ -21,10 +21,10 @@ A gtk3 comic and image archive viewer written in Go, freely available under GPL 
 
 ## Requirements
 
-gtk3, gdk-pixbuf2, glib2, go-bindata.
+gtk3, gdk-pixbuf2, glib2. For compiling from source, go and go-bindata are also required.
 
 ## Installation
-Run ./make.sh.
+Run `./make.sh`.
 
 Arch Linux users can alternatively install the AUR package `gomics-git`.
 

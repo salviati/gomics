@@ -21,6 +21,7 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/salviati/gomics/archive"
+	"github.com/salviati/gomics/imgdiff"
 	"log"
 	"net/url"
 	"os"
@@ -42,6 +43,7 @@ type State struct {
 	Scale              float64
 	UserHome           string
 	ConfigPath         string
+	ImageHash          map[int]imgdiff.Hash
 }
 
 func (gui *GUI) SetStatus(msg string) {
@@ -63,14 +65,14 @@ func (gui *GUI) Close() {
 		return
 	}
 
-	if gui.State.Archive != nil {
-		gui.State.Archive.Close()
-	}
+	gui.State.Archive.Close()
 
 	gui.State.Archive = nil
 	gui.State.ArchiveName = ""
 	gui.State.ArchivePath = ""
 	gui.State.ArchivePos = 0
+
+	gui.State.ImageHash = nil
 
 	gui.ImageL.Clear()
 	gui.ImageR.Clear()
@@ -106,6 +108,8 @@ func (gui *GUI) LoadArchive(uri string) {
 	if gui.Loaded() {
 		gui.Close()
 	}
+
+	gui.State.ImageHash = make(map[int]imgdiff.Hash)
 
 	gui.State.ArchivePath = path
 	gui.State.ArchiveName = filepath.Base(path)
@@ -300,7 +304,7 @@ func (gui *GUI) SetFullscreen(fullscreen bool) {
 	if fullscreen {
 		gui.Statusbar.Hide()
 		gui.Toolbar.Hide()
-		//gui.Menubar.Hide()
+		//gui.Menubar.Hide() // BUG: menubar visible on fullscreen
 		gui.MainWindow.Fullscreen()
 	} else {
 		gui.Statusbar.Show()

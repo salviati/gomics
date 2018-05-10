@@ -117,8 +117,11 @@ func (gui *GUI) LastPage() {
 	gui.SetPage(gui.State.Archive.Len() - 1)
 }
 
-func (gui *GUI) imageHash(n int) (imgdiff.Hash, bool) {
-	// todo: cache these results
+func (gui *GUI) ImageHash(n int) (imgdiff.Hash, bool) {
+	if hash, ok := gui.State.ImageHash[n]; ok {
+		return hash, true
+	}
+
 	pixbuf, err := gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation)
 	if err != nil {
 		gui.ShowError(err.Error())
@@ -145,7 +148,7 @@ func (gui *GUI) NextScene() {
 	}
 
 	for n := gui.State.ArchivePos + 1; n < gui.State.Archive.Len(); n += dn {
-		h, ok := gui.imageHash(n)
+		h, ok := gui.ImageHash(n)
 		if !ok {
 			return
 		}
@@ -159,7 +162,7 @@ func (gui *GUI) NextScene() {
 
 			// did we go too fast?
 			for l := n - 1; l >= gui.State.ArchivePos+1; l-- {
-				h, ok := gui.imageHash(l)
+				h, ok := gui.ImageHash(l)
 				if !ok {
 					return
 				}
@@ -190,7 +193,7 @@ func (gui *GUI) PreviousScene() {
 	}
 
 	for n := gui.State.ArchivePos - 1; n >= 0; n -= dn {
-		h, ok := gui.imageHash(n)
+		h, ok := gui.ImageHash(n)
 		if !ok {
 			return
 		}
@@ -204,7 +207,7 @@ func (gui *GUI) PreviousScene() {
 
 			// did we go too fast?
 			for l := n + 1; l <= gui.State.ArchivePos-1; l++ {
-				h, ok := gui.imageHash(l)
+				h, ok := gui.ImageHash(l)
 				if !ok {
 					return
 				}
