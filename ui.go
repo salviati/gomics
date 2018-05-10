@@ -109,7 +109,7 @@ func (gui *GUI) LoadWidgets() (err error) {
 		return err
 	}
 
-	gomics_glade, err := gomics_glade()
+	gomics_glade, err := Asset("gomics.glade")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -144,12 +144,12 @@ func (gui *GUI) initUI() {
 		log.Fatal(err)
 	}
 
-	about, err := about_jpg()
+	about, err := Asset("about.jpg")
 	if err != nil {
 		panic(err.Error())
 	}
 	gui.AboutDialog.SetLogo(mustLoadPixbuf(about))
-	icon, err := icon_png()
+	icon, err := Asset("icon.png")
 	gui.MainWindow.SetIcon(mustLoadPixbuf(icon))
 	if err != nil {
 		panic(err.Error())
