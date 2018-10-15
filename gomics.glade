@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.20.2 
+<!-- Generated with glade 3.22.1 
 
 Copyright (C) 2013-2018
 
@@ -44,6 +44,9 @@ Author: Utkan Güngördü
     <property name="can_focus">False</property>
     <property name="title" translatable="yes">Gomics</property>
     <property name="window_position">center</property>
+    <child type="titlebar">
+      <placeholder/>
+    </child>
     <child>
       <object class="GtkBox" id="VBox">
         <property name="visible">True</property>
@@ -162,7 +165,7 @@ Author: Utkan Güngördü
                       <object class="GtkCheckMenuItem" id="MenuItemShrink">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Shink large images</property>
+                        <property name="label" translatable="yes">Shrink large images</property>
                         <accelerator key="s" signal="activate"/>
                       </object>
                     </child>
@@ -235,8 +238,8 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Fullscreen</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="F11" signal="activate"/>
                         <accelerator key="f" signal="activate"/>
+                        <accelerator key="F11" signal="activate"/>
                       </object>
                     </child>
                     <child>
@@ -324,9 +327,9 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Previous page</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="KP_Page_Up" signal="activate"/>
-                        <accelerator key="space" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <accelerator key="Page_Up" signal="activate"/>
+                        <accelerator key="space" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                        <accelerator key="KP_Page_Up" signal="activate"/>
                       </object>
                     </child>
                     <child>
@@ -335,9 +338,9 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Next page</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="KP_Next" signal="activate"/>
-                        <accelerator key="space" signal="activate"/>
                         <accelerator key="Page_Down" signal="activate"/>
+                        <accelerator key="space" signal="activate"/>
+                        <accelerator key="KP_Next" signal="activate"/>
                       </object>
                     </child>
                     <child>
@@ -374,8 +377,8 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">First page</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="Home" signal="activate"/>
                         <accelerator key="KP_Home" signal="activate"/>
+                        <accelerator key="Home" signal="activate"/>
                       </object>
                     </child>
                     <child>
@@ -384,8 +387,8 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Last page</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="End" signal="activate"/>
                         <accelerator key="KP_End" signal="activate"/>
+                        <accelerator key="End" signal="activate"/>
                       </object>
                     </child>
                     <child>
@@ -400,8 +403,8 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Previous archive</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="Page_Up" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <accelerator key="KP_Page_Up" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                        <accelerator key="Page_Up" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
                     </child>
                     <child>
@@ -410,8 +413,8 @@ Author: Utkan Güngördü
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Next archive</property>
                         <property name="use_underline">True</property>
-                        <accelerator key="Page_Down" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                         <accelerator key="KP_Next" signal="activate" modifiers="GDK_CONTROL_MASK"/>
+                        <accelerator key="Page_Down" signal="activate" modifiers="GDK_CONTROL_MASK"/>
                       </object>
                     </child>
                     <child>
@@ -726,9 +729,6 @@ Author: Utkan Güngördü
         </child>
       </object>
     </child>
-    <child type="titlebar">
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkAboutDialog" id="AboutDialog">
     <property name="can_focus">False</property>
@@ -746,6 +746,9 @@ Author: Utkan Güngördü
     <property name="logo_icon_name"/>
     <property name="wrap_license">True</property>
     <property name="license_type">gpl-3-0</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="AboutDialogVBox">
         <property name="can_focus">False</property>
@@ -768,9 +771,6 @@ Author: Utkan Güngördü
         </child>
       </object>
     </child>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkFileChooserDialog" id="FileChooserDialogArchive">
     <property name="can_focus">False</property>
@@ -782,6 +782,9 @@ Author: Utkan Güngördü
     <property name="type_hint">dialog</property>
     <property name="transient_for">MainWindow</property>
     <property name="filter">FileFilterArchive</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="FileChooserDialogArchiveVBox">
         <property name="can_focus">False</property>
@@ -803,9 +806,6 @@ Author: Utkan Güngördü
         </child>
       </object>
     </child>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="GoToDialog">
     <property name="width_request">400</property>
@@ -815,6 +815,9 @@ Author: Utkan Güngördü
     <property name="icon_name">go-jump</property>
     <property name="type_hint">dialog</property>
     <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="GoToBoxMain">
         <property name="can_focus">False</property>
@@ -893,9 +896,6 @@ Author: Utkan Güngördü
         </child>
       </object>
     </child>
-    <child>
-      <placeholder/>
-    </child>
   </object>
   <object class="GtkDialog" id="PreferencesDialog">
     <property name="can_focus">False</property>
@@ -903,6 +903,9 @@ Author: Utkan Güngördü
     <property name="title" translatable="yes">Preferences</property>
     <property name="type_hint">dialog</property>
     <property name="transient_for">MainWindow</property>
+    <child>
+      <placeholder/>
+    </child>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox1">
         <property name="can_focus">False</property>
@@ -1035,7 +1038,7 @@ Author: Utkan Güngördü
                       <object class="GtkLabel" id="InterpolationLabel">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Image interpolation algoirthm:</property>
+                        <property name="label" translatable="yes">Image interpolation algorithm:</property>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -1094,7 +1097,7 @@ Author: Utkan Güngördü
               <object class="GtkLabel" id="PreferencesBehaviorLabel">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
-                <property name="label" translatable="yes">Behaviour</property>
+                <property name="label" translatable="yes">Behavior</property>
               </object>
               <packing>
                 <property name="position">1</property>
@@ -1172,9 +1175,6 @@ Author: Utkan Güngördü
           </packing>
         </child>
       </object>
-    </child>
-    <child>
-      <placeholder/>
     </child>
   </object>
 </interface>
