@@ -48,6 +48,7 @@ type Config struct {
 	SceneScanSkip       int
 	SmartScroll         bool
 	Bookmarks           []Bookmark
+	HideIdleCursor      bool
 }
 
 func (c *Config) Load(path string) error {
@@ -93,4 +94,5 @@ func (c *Config) Defaults() {
 	c.ImageDiffThres = 0.4
 	c.SceneScanSkip = 5
 	c.SmartScroll = true
+	c.HideIdleCursor = true
 }

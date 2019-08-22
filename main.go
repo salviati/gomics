@@ -30,6 +30,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strings"
+	"time"
 )
 
 type State struct {
@@ -44,6 +45,9 @@ type State struct {
 	UserHome           string
 	ConfigPath         string
 	ImageHash          map[int]imgdiff.Hash
+	CursorLastMoved    time.Time
+	CursorHidden       bool
+	CursorForceShown   bool
 }
 
 func (gui *GUI) SetStatus(msg string) {
@@ -78,6 +82,9 @@ func (gui *GUI) Close() {
 	gui.ImageR.Clear()
 	gui.State.PixbufL = nil
 	gui.State.PixbufR = nil
+	gui.State.CursorLastMoved = time.Now()
+	gui.State.CursorHidden = false
+	gui.State.CursorForceShown = false
 	gui.SetStatus("")
 	gui.MainWindow.SetTitle("Gomics")
 	gc()
@@ -414,6 +421,10 @@ func (gui *GUI) SetOneWide(oneWide bool) {
 
 func (gui *GUI) SetSmartScroll(smartScroll bool) {
 	gui.Config.SmartScroll = smartScroll
+}
+
+func (gui *GUI) SetHideIdleCursor(hideIdleCursor bool) {
+	gui.Config.HideIdleCursor = hideIdleCursor
 }
 
 func (gui *GUI) SetEmbeddedOrientation(embeddedOrientation bool) {
