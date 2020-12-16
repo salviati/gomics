@@ -444,8 +444,8 @@ func (gui *GUI) initUI() {
 	gui.MainWindow.Connect("key-press-event", func(_ *gtk.Window, e *gdk.Event) {
 		ke := &gdk.EventKey{e}
 
-		shift := ke.State()&uint(gdk.GDK_SHIFT_MASK) != 0
-		ctrl := ke.State()&uint(gdk.GDK_CONTROL_MASK) != 0
+		shift := ke.State()&uint(gdk.SHIFT_MASK) != 0
+		ctrl := ke.State()&uint(gdk.CONTROL_MASK) != 0
 
 		switch ke.KeyVal() {
 		case gdk.KEY_Down:
