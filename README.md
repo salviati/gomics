@@ -8,7 +8,7 @@ A gtk3 comic and image archive viewer written in Go, freely available under GPL 
 
 ## Features
 
-- Reads zip (and cbz) files directly, without writing to disk at all.
+- Reads zip (and cbz) files directly, without writing to disk/tmpfs at all.
 - Small memory footprint.
 - Double and single-page mode.
 - Comic and manga-mode (left-to-right and right-to-left page order).

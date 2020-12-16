@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2018 Utkan Güngördü <utkan@freeconsole.org>
+// Copyright (c) 2013-2020 Utkan Güngördü <utkan@freeconsole.org>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@ package archive
 import (
 	"errors"
 	"github.com/gotk3/gotk3/gdk"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -38,6 +39,14 @@ const (
 )
 
 func NewArchive(path string) (Archive, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if fi.IsDir() {
+		return NewDir(path)
+	}
 
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".zip", ".cbz":

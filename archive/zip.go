@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2018 Utkan Güngördü <utkan@freeconsole.org>
+// Copyright (c) 2013-2020 Utkan Güngördü <utkan@freeconsole.org>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@ import (
 	"archive/zip"
 	"errors"
 	"github.com/gotk3/gotk3/gdk"
-	"path"
+	"path/filepath"
 	"sort"
 )
 
@@ -41,7 +41,7 @@ func NewZip(name string) (*Zip, error) {
 
 	ar := new(Zip)
 
-	ar.name = path.Base(name)
+	ar.name = filepath.Base(name)
 	ar.files = make([]*zip.File, 0, MaxArchiveEntries)
 	ar.reader, err = zip.OpenReader(name)
 	if err != nil {

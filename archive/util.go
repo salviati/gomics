@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2018 Utkan Güngördü <utkan@freeconsole.org>
+// Copyright (c) 2013-2020 Utkan Güngördü <utkan@freeconsole.org>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,9 +17,9 @@ package archive
 
 import (
 	"bytes"
-	"github.com/salviati/gomics/natsort"
 	"errors"
 	"github.com/gotk3/gotk3/gdk"
+	"github.com/salviati/gomics/natsort"
 	"io"
 	"os"
 	"path/filepath"
@@ -93,7 +93,7 @@ func ListArchives(dir string) (anames []string, err error) {
 		return
 	}
 
-	if !fi.Mode().IsDir() {
+	if !fi.IsDir() {
 		err = errors.New(dir + " is not a directory!")
 		return
 	}
@@ -105,13 +105,20 @@ func ListArchives(dir string) (anames []string, err error) {
 
 	anames = make([]string, 0, len(names))
 	for _, name := range names {
-		if !ExtensionMatch(name, ArchiveExtensions) {
+		var fi os.FileInfo
+		fi, err = os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			return
+		}
+
+		if !ExtensionMatch(name, ArchiveExtensions) && !fi.IsDir() {
+			// TODO(utkan): don't add empty archives
 			continue
 		}
 		anames = append(anames, name)
 	}
 
-	sort.Sort(stringArray(anames))
+	sort.Sort(stringArray(anames)) // TODO(utkan): can use natsort for archives as well
 
 	return
 }
@@ -191,3 +198,9 @@ func strcmp(a, b string, nat bool) bool {
 	}
 	return a < b
 }
+
+type filenames []string
+
+func (p filenames) Len() int           { return len(p) }
+func (p filenames) Less(i, j int) bool { return strcmp(p[i], p[j], true) }
+func (p filenames) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
