@@ -90,14 +90,8 @@ func (gui *GUI) Close() {
 	gc()
 }
 
-func (gui *GUI) LoadArchive(uri string) {
+func (gui *GUI) LoadArchive(path string) {
 	// TODO(utkan): non-local (http:// or https://) stuff someday?
-
-	u, err := url.Parse(uri)
-	if err != nil {
-		log.Println(err)
-	}
-	path := u.Path
 
 	if strings.TrimSpace(path) == "" {
 		return
@@ -121,6 +115,7 @@ func (gui *GUI) LoadArchive(uri string) {
 	gui.State.ArchivePath = path
 	gui.State.ArchiveName = filepath.Base(path)
 
+	var err error
 	if gui.State.Archive, err = archive.NewArchive(path); err != nil {
 		gui.ShowError("Failed to open " + path + ": " + err.Error())
 		return
@@ -129,10 +124,8 @@ func (gui *GUI) LoadArchive(uri string) {
 	gui.setPage(0) // FIXME(utkan): this might fail.
 	os.Chdir(gui.State.ArchivePath)
 
-	u.Path = path
-	if u.Scheme == "" {
-		u.Scheme = "file"
-	}
+	u := &url.URL{Path: path, Scheme: "file"}
+
 	ok := gui.RecentManager.AddItem(u.String())
 	if !ok {
 		log.Println("Failed to add", path, "as a recent item")

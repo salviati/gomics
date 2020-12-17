@@ -23,6 +23,7 @@ import (
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 	"log"
+	"net/url"
 	"reflect"
 	"runtime"
 	"time"
@@ -374,7 +375,12 @@ func (gui *GUI) initUI() {
 
 	gui.RecentChooserMenu.Connect("item-activated", func() {
 		uri := gui.RecentChooserMenu.GetCurrentUri()
-		gui.LoadArchive(uri)
+		u, err := url.Parse(uri)
+		if err != nil {
+			gui.ShowError(err.Error())
+			return
+		}
+		gui.LoadArchive(u.Path)
 	})
 
 	gui.PagesToSkipSpinButton.SetRange(1, 100)
