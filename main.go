@@ -191,6 +191,10 @@ func (gui *GUI) setPage(n int) {
 }
 
 func (gui *GUI) Scroll(dx, dy float64) {
+	if !gui.Loaded() {
+		return
+	}
+
 	imgw, imgh := gui.GetSize()
 
 	vadj := gui.ScrolledWindow.GetVAdjustment()
@@ -248,6 +252,10 @@ func (gui *GUI) Scroll(dx, dy float64) {
 }
 
 func (gui *GUI) scrollToTop() {
+	if !gui.Loaded() {
+		return
+	}
+
 	vadj := gui.ScrolledWindow.GetVAdjustment()
 	vadj.SetValue(0)
 	gui.ScrolledWindow.SetVAdjustment(vadj)

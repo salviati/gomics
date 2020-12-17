@@ -218,7 +218,7 @@ func (gui *GUI) initUI() {
 	}
 
 	if len(gitVersion) >= 7 {
-		version := fmt.Sprintf("Version: %s (built: %s)\nCompiler version: %s", gitVersion[:7], buildDate, runtime.Version())
+		version := fmt.Sprintf("Version: git-%s (built: %s)\nCompiler version: %s", gitVersion[:7], buildDate, runtime.Version())
 		gui.AboutDialog.SetVersion(version)
 	}
 
