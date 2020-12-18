@@ -30,7 +30,7 @@ type Dir struct {
 	path      string
 }
 
-/* Reads filenames from a given zip archive, and sorts them */
+/* Reads filenames from a directory, and sorts them */
 func NewDir(path string) (*Dir, error) {
 	var err error
 
