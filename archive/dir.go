@@ -18,7 +18,6 @@ package archive
 import (
 	"errors"
 	"github.com/gotk3/gotk3/gdk"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -38,17 +37,24 @@ func NewDir(path string) (*Dir, error) {
 
 	d.name = filepath.Base(path)
 	d.path = path
-	d.filenames = make([]string, 0, MaxArchiveEntries)
-	files, err := ioutil.ReadDir(path)
+
+	dir, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	defer dir.Close()
 
-	for _, fi := range files {
-		if ExtensionMatch(fi.Name(), ImageExtensions) == false {
+	filenames, err := dir.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	d.filenames = make([]string, 0, len(filenames))
+
+	for _, name := range filenames {
+		if ExtensionMatch(name, ImageExtensions) == false {
 			continue
 		}
-		d.filenames = append(d.filenames, fi.Name())
+		d.filenames = append(d.filenames, name)
 	}
 
 	if len(d.filenames) == 0 {
