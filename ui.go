@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//go:generate go-bindata about.jpg icon.png gomics.glade
-
 package main
+
+
+
 
 import (
 	"fmt"
@@ -28,6 +29,17 @@ import (
 	"runtime"
 	"time"
 )
+
+import _ "embed"
+
+//go:embed about.jpg
+var about []byte
+
+//go:embed icon.png
+var icon []byte
+
+//go:embed gomics.glade
+var gomics_glade string
 
 type GUI struct {
 	MainWindow                     *gtk.Window            `build:"MainWindow"`
@@ -113,11 +125,7 @@ func (gui *GUI) LoadWidgets() (err error) {
 		return err
 	}
 
-	gomics_glade, err := Asset("gomics.glade")
-	if err != nil {
-		panic(err.Error())
-	}
-	if err = builder.AddFromString(string(gomics_glade)); err != nil {
+	if err = builder.AddFromString(gomics_glade); err != nil {
 		return err
 	}
 
@@ -207,16 +215,8 @@ func (gui *GUI) initUI() {
 		log.Fatal(err)
 	}
 
-	about, err := Asset("about.jpg")
-	if err != nil {
-		panic(err.Error())
-	}
 	gui.AboutDialog.SetLogo(mustLoadPixbuf(about))
-	icon, err := Asset("icon.png")
 	gui.MainWindow.SetIcon(mustLoadPixbuf(icon))
-	if err != nil {
-		panic(err.Error())
-	}
 
 	if len(gitVersion) >= 7 {
 		version := fmt.Sprintf("Version: git-%s (built: %s)\nCompiler version: %s", gitVersion[:7], buildDate, runtime.Version())
