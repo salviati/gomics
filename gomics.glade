@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 
+<!-- Generated with glade 3.38.2
 
-Copyright (C) 2013-2018
+Copyright (C) 2013-2021
 
 This file is part of Gomics.
 
@@ -26,7 +26,7 @@ Author: Utkan Güngördü
   <!-- interface-license-type gplv3 -->
   <!-- interface-name Gomics -->
   <!-- interface-description A free image archive viewer -->
-  <!-- interface-copyright 2013-2018 -->
+  <!-- interface-copyright 2013-2021 -->
   <!-- interface-authors Utkan G\303\274ng\303\266rd\303\274 -->
   <object class="GtkAccelGroup" id="AcceleratorGroup"/>
   <object class="GtkFileFilter" id="FileFilterArchive">
@@ -735,7 +735,7 @@ Author: Utkan Güngördü
     <property name="type-hint">dialog</property>
     <property name="transient-for">MainWindow</property>
     <property name="program-name">Gomics</property>
-    <property name="copyright" translatable="yes">Copyright 2013-2020, Utkan Güngördü</property>
+    <property name="copyright" translatable="yes">Copyright 2013-2021, Utkan Güngördü</property>
     <property name="comments" translatable="yes">Gomics is a fast and resource efficient image viewer for comic archives written in Go, freely available under GPL v3.</property>
     <property name="website">https://github.com/salviati/gomics</property>
     <property name="authors">Utkan Güngördü</property>
