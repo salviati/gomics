@@ -37,10 +37,18 @@ type Loader interface {
 
 //var ArchiveExtensions = []string{".zip", ".cbz", ".7z", ".rar", ".tar", ".tgz", ".tbz2", ".cb7", ".cbr", ".cbt"}
 var ArchiveExtensions = []string{".zip", ".cbz"}
-var ImageExtensions = []string{ // FIXME(utkan): Use gdk_pixbuf_get_formats()
-	".jpg", ".jpeg", ".gif", ".png", ".tif", ".bmp", ".pcx", ".xv", ".xpm",
-	".xcf", ".tif", ".tga", ".pnm", ".lbm", ".cur", ".ico",
-	".jp2", ".j2k", ".jpf", ".jpx", ".jpm",
+var ImageExtensions []string
+
+func init() {
+	ImageExtensions = make([]string, 0)
+	formats := gdk.PixbufGetFormats()
+	for _, format := range formats {
+		ImageExtensions = append(ImageExtensions, format.GetExtensions()...)
+	}
+
+	for i := range ImageExtensions {
+		ImageExtensions[i] = "." + ImageExtensions[i] // gdk pixbuf format extensions don't have the leading "."
+	}
 }
 
 func ExtensionMatch(p string, extensions []string) bool {
