@@ -21,9 +21,11 @@ import (
 )
 
 const (
-	ConfigDir  = ".config/gomics" // relative to user's home
-	ConfigFile = "config"         // relative to config dir
-	ImageDir   = "images"         // relative to config dir
+	ConfigDir           = ".config/gomics" // relative to user's home
+	ConfigFile          = "config"         // relative to config dir
+	ImageDir            = "images"         // relative to config dir
+	PNGCompressionLevel = 5
+	ThumbnailSize       = 128
 )
 
 type Config struct {
@@ -49,6 +51,8 @@ type Config struct {
 	SmartScroll         bool
 	Bookmarks           []Bookmark
 	HideIdleCursor      bool
+	UseBackgroundColor  bool
+	BackgroundColor     string
 }
 
 func (c *Config) Load(path string) error {
@@ -95,4 +99,6 @@ func (c *Config) Defaults() {
 	c.SceneScanSkip = 5
 	c.SmartScroll = true
 	c.HideIdleCursor = true
+	c.UseBackgroundColor = false
+	c.BackgroundColor = "#000000"
 }

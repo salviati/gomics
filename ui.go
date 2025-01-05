@@ -15,9 +15,6 @@
 
 package main
 
-
-
-
 import (
 	"fmt"
 	"github.com/gotk3/gotk3/gdk"
@@ -59,6 +56,8 @@ type GUI struct {
 	MenuItemSaveImage              *gtk.MenuItem          `build:"MenuItemSaveImage"`
 	FileChooserDialogArchive       *gtk.FileChooserDialog `build:"FileChooserDialogArchive"`
 	Toolbar                        *gtk.Toolbar           `build:"Toolbar"`
+	BackgroundColorButton          *gtk.ColorButton       `build:"BackgroundColorButton"`
+	UseBackgroundColorCheckButton  *gtk.CheckButton       `build:"UseBackgroundColorCheckButton"`
 	ButtonNextPage                 *gtk.ToolButton        `build:"ButtonNextPage"`
 	ButtonPreviousPage             *gtk.ToolButton        `build:"ButtonPreviousPage"`
 	ButtonLastPage                 *gtk.ToolButton        `build:"ButtonLastPage"`
@@ -489,6 +488,19 @@ func (gui *GUI) initUI() {
 		}
 	})
 
+	gui.UseBackgroundColorCheckButton.Connect("toggled", func() {
+		gui.Config.UseBackgroundColor = gui.UseBackgroundColorCheckButton.GetActive()
+		gui.SetBackgroundColor(gui.Config.BackgroundColor)
+	})
+
+	gui.BackgroundColorButton.Connect("color-set", func(o *glib.Object) {
+		c := &gtk.ColorChooser{
+			Object: o,
+		}
+		color := c.GetRGBA()
+		gui.SetBackgroundColor(color.String())
+	})
+
 	gui.RebuildBookmarksMenu()
 
 	gui.MainWindow.SetDefaultSize(gui.Config.WindowWidth, gui.Config.WindowHeight)
@@ -504,8 +516,49 @@ func (gui *GUI) initUI() {
 	gui.SetZoomMode(gui.Config.ZoomMode)
 	gui.SetDoublePage(gui.Config.DoublePage)
 	gui.SetMangaMode(gui.Config.MangaMode)
+	if gui.Config.UseBackgroundColor {
+		gui.SetBackgroundColor(gui.Config.BackgroundColor)
+	}
 
 	gui.fixFocus()
+
+}
+
+func (gui *GUI) SetBackgroundColor(color string) {
+	gdkColor := gdk.NewRGBA()
+	if ok := gdkColor.Parse(color); !ok {
+		return
+	}
+
+	ctx, err := gui.ScrolledWindow.GetStyleContext()
+	if err != nil {
+		gui.ShowError(err.Error())
+		return
+	}
+
+	provider, err := gtk.CssProviderNew()
+	if err != nil {
+		gui.ShowError(err.Error())
+		return
+	}
+
+	if gui.State.BackgroundStyleProvider != nil {
+		ctx.RemoveProvider(gui.State.BackgroundStyleProvider)
+	}
+
+	if gui.Config.UseBackgroundColor == false {
+		return
+	}
+
+	css := fmt.Sprintf("scrolledwindow { background-color: %s; }", color)
+	if err = provider.LoadFromData(css); err != nil {
+		gui.ShowError(err.Error())
+		return
+	}
+	ctx.AddProvider(provider, 800)
+
+	gui.State.BackgroundStyleProvider = provider
+	gui.Config.BackgroundColor = color
 }
 
 func (gui *GUI) goToDialogLoadSetThumbnail() {
@@ -516,7 +569,7 @@ func (gui *GUI) goToDialogLoadSetThumbnail() {
 		return
 	}
 
-	w, h := fit(pixbuf.GetWidth(), pixbuf.GetHeight(), 128, 128)
+	w, h := fit(pixbuf.GetWidth(), pixbuf.GetHeight(), ThumbnailSize, ThumbnailSize)
 
 	scaled, err := pixbuf.ScaleSimple(w, h, interpolations[gui.Config.Interpolation])
 	if err != nil {
@@ -540,6 +593,12 @@ func (gui *GUI) syncUI() {
 	gui.MenuItemSeamless.SetActive(gui.Config.Seamless)
 	gui.MenuItemDoublePage.SetActive(gui.Config.DoublePage)
 	gui.MenuItemMangaMode.SetActive(gui.Config.MangaMode)
+	gui.UseBackgroundColorCheckButton.SetActive(gui.Config.UseBackgroundColor)
+
+	gdkBackgroundColor := gdk.NewRGBA()
+	if ok := gdkBackgroundColor.Parse(gui.Config.BackgroundColor); ok {
+		gui.BackgroundColorButton.SetRGBA(gdkBackgroundColor)
+	}
 
 	switch gui.Config.ZoomMode {
 	case "FitToWidth":

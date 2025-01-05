@@ -34,20 +34,21 @@ import (
 )
 
 type State struct {
-	Archive            archive.Archive
-	ArchivePos         int
-	ArchivePath        string
-	ArchiveName        string
-	PixbufL, PixbufR   *gdk.Pixbuf
-	GoToThumnailPixbuf *gdk.Pixbuf
-	DeltaW, DeltaH     int
-	Scale              float64
-	UserHome           string
-	ConfigPath         string
-	ImageHash          map[int]imgdiff.Hash
-	CursorLastMoved    time.Time
-	CursorHidden       bool
-	CursorForceShown   bool
+	Archive                 archive.Archive
+	ArchivePos              int
+	ArchivePath             string
+	ArchiveName             string
+	PixbufL, PixbufR        *gdk.Pixbuf
+	GoToThumnailPixbuf      *gdk.Pixbuf
+	DeltaW, DeltaH          int
+	Scale                   float64
+	UserHome                string
+	ConfigPath              string
+	ImageHash               map[int]imgdiff.Hash
+	CursorLastMoved         time.Time
+	CursorHidden            bool
+	CursorForceShown        bool
+	BackgroundStyleProvider *gtk.CssProvider
 }
 
 func (gui *GUI) SetStatus(msg string) {
@@ -61,6 +62,7 @@ func (gui *GUI) ResizeEvent() {
 }
 
 func (gui *GUI) ShowError(msg string) {
+	log.Println(msg)
 	gui.SetStatus(msg)
 }
 
@@ -132,6 +134,20 @@ func (gui *GUI) LoadArchive(path string) {
 	}
 }
 
+func (gui *GUI) LoadImage(n int) (*gdk.Pixbuf, error) {
+	ar := gui.State.Archive
+	pixbuf, err := ar.Load(n, gui.Config.EmbeddedOrientation)
+
+	if err != nil {
+		filename, _ := ar.Name(n)
+		gui.ShowError(fmt.Sprintf(`Failed to load file #%d "%s": %s`, n+1, filename, err.Error()))
+		return nil, err
+	}
+
+	gui.ImageHash(n, pixbuf)
+	return pixbuf, nil
+}
+
 func (gui *GUI) SetPage(n int) {
 	if !gui.Loaded() {
 		return
@@ -158,20 +174,18 @@ func (gui *GUI) setPage(n int) {
 	}
 
 	gui.State.ArchivePos = n
+	gui.State.PixbufR = nil
+	// TODO clear images in the UI on error
 
 	var err error
-	gui.State.PixbufL, err = gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation)
-	if err != nil {
-		gui.ShowError(err.Error())
-		return
+	if gui.State.PixbufL, err = gui.LoadImage(n); err != nil {
+		//return
 	}
 
 	gui.State.PixbufR = nil
 	if gui.Config.DoublePage && n+1 < gui.State.Archive.Len() {
-		gui.State.PixbufR, err = gui.State.Archive.Load(n+1, gui.Config.EmbeddedOrientation)
-		if err != nil {
-			gui.ShowError(err.Error())
-			return
+		if gui.State.PixbufR, err = gui.LoadImage(n + 1); err != nil {
+			//return
 		}
 	}
 
@@ -264,6 +278,7 @@ func (gui *GUI) scroll(int dx, int dy) {
 	vadj.SetValue(0)
 }
 */
+
 func (gui *GUI) Quit() {
 	gui.Config.WindowWidth, gui.Config.WindowHeight = gui.MainWindow.GetSize()
 
@@ -312,12 +327,12 @@ func (gui *GUI) SetFullscreen(fullscreen bool) {
 	if fullscreen {
 		gui.Statusbar.Hide()
 		gui.Toolbar.Hide()
-		//gui.Menubar.Hide() // BUG: menubar visible on fullscreen
+		gui.Menubar.Hide() // BUG: menubar visible on fullscreen
 		gui.MainWindow.Fullscreen()
 	} else {
 		gui.Statusbar.Show()
 		gui.Toolbar.Show()
-		//gui.Menubar.Show()
+		gui.Menubar.Show()
 		gui.MainWindow.Unfullscreen()
 	}
 	gui.MenuItemFullscreen.SetActive(fullscreen)
@@ -369,10 +384,13 @@ func (gui *GUI) SavePNG() {
 
 	pngBase := fmt.Sprintf("%s-%000d.png", base, gui.State.ArchivePos+1)
 	pngPath := filepath.Join(gui.State.ConfigPath, ImageDir, pngBase)
-	if err := gui.State.PixbufL.SavePNG(pngPath, 5); err != nil {
+	if err := gui.State.PixbufL.SavePNG(pngPath, PNGCompressionLevel); err != nil {
 		gui.ShowError(err.Error())
 		return
 	}
+
+	// TODO: save PixbufR as well when two pages are displayed
+	// TODO: save original file without conversion
 
 	gui.SetStatus("Saved to " + pngBase)
 }

@@ -17,6 +17,7 @@ package main
 
 import (
 	"errors"
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/salviati/gomics/archive"
 	"github.com/salviati/gomics/imgdiff"
 	"math/rand"
@@ -117,19 +118,20 @@ func (gui *GUI) LastPage() {
 	gui.SetPage(gui.State.Archive.Len() - 1)
 }
 
-func (gui *GUI) ImageHash(n int) (imgdiff.Hash, bool) {
+// pass nil for pixbuf if the nth image is not loaded yet
+func (gui *GUI) ImageHash(n int, pixbuf *gdk.Pixbuf) (imgdiff.Hash, bool) {
 	if hash, ok := gui.State.ImageHash[n]; ok {
 		return hash, true
 	}
 
-	pixbuf, err := gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation)
-	if err != nil {
-		gui.ShowError(err.Error())
-		return 0, false
+	if pixbuf == nil {
+		var err error
+		if pixbuf, err = gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation); err != nil {
+			return 0, false
+		}
 	}
 
 	return imgdiff.DHash(pixbuf), true
-
 }
 
 func (gui *GUI) NextScene() {
@@ -148,7 +150,7 @@ func (gui *GUI) NextScene() {
 	}
 
 	for n := gui.State.ArchivePos + 1; n < gui.State.Archive.Len(); n += dn {
-		h, ok := gui.ImageHash(n)
+		h, ok := gui.ImageHash(n, nil)
 		if !ok {
 			return
 		}
@@ -162,7 +164,7 @@ func (gui *GUI) NextScene() {
 
 			// did we go too fast?
 			for l := n - 1; l >= gui.State.ArchivePos+1; l-- {
-				h, ok := gui.ImageHash(l)
+				h, ok := gui.ImageHash(l, nil)
 				if !ok {
 					return
 				}
@@ -193,7 +195,7 @@ func (gui *GUI) PreviousScene() {
 	}
 
 	for n := gui.State.ArchivePos - 1; n >= 0; n -= dn {
-		h, ok := gui.ImageHash(n)
+		h, ok := gui.ImageHash(n, nil)
 		if !ok {
 			return
 		}
@@ -207,7 +209,7 @@ func (gui *GUI) PreviousScene() {
 
 			// did we go too fast?
 			for l := n + 1; l <= gui.State.ArchivePos-1; l++ {
-				h, ok := gui.ImageHash(l)
+				h, ok := gui.ImageHash(l, nil)
 				if !ok {
 					return
 				}
