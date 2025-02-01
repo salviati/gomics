@@ -327,7 +327,7 @@ func (gui *GUI) SetFullscreen(fullscreen bool) {
 	if fullscreen {
 		gui.Statusbar.Hide()
 		gui.Toolbar.Hide()
-		gui.Menubar.Hide() // BUG: menubar visible on fullscreen
+		//gui.Menubar.Hide() // BUG: menubar visible on fullscreen without, accel keys are disabled with
 		gui.MainWindow.Fullscreen()
 	} else {
 		gui.Statusbar.Show()
