@@ -18,6 +18,7 @@ package archive
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/salviati/gomics/natsort"
 	"io"
@@ -25,6 +26,18 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	_ "github.com/dblezek/tga"
+	_ "github.com/gen2brain/gav1d/avif"
+	_ "github.com/gen2brain/jxl"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
+	"image"
+	"image/draw"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 type Loader interface {
@@ -35,20 +48,11 @@ type Loader interface {
 
 // TODO(utkan): check rar support
 
-//var ArchiveExtensions = []string{".zip", ".cbz", ".7z", ".rar", ".tar", ".tgz", ".tbz2", ".cb7", ".cbr", ".cbt"}
+// var ArchiveExtensions = []string{".zip", ".cbz", ".7z", ".rar", ".tar", ".tgz", ".tbz2", ".cb7", ".cbr", ".cbt"}
 var ArchiveExtensions = []string{".zip", ".cbz"}
-var ImageExtensions []string
+var ImageExtensions = []string{".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".jxl", ".png", ".targa", ".tga", ".tif", ".tiff", ".webp"}
 
 func init() {
-	ImageExtensions = make([]string, 0)
-	formats := gdk.PixbufGetFormats()
-	for _, format := range formats {
-		ImageExtensions = append(ImageExtensions, format.GetExtensions()...)
-	}
-
-	for i := range ImageExtensions {
-		ImageExtensions[i] = "." + ImageExtensions[i] // gdk pixbuf format extensions don't have the leading "."
-	}
 }
 
 func ExtensionMatch(p string, extensions []string) bool {
@@ -132,23 +136,29 @@ func ListArchives(dir string) (anames []string, err error) {
 }
 
 func LoadPixbuf(r io.Reader, autorotate bool) (*gdk.Pixbuf, error) {
-	w, _ := gdk.PixbufLoaderNew()
-	defer w.Close()
-	_, err := io.Copy(w, r)
+	// TODO(utkan): use an EXIF library to restore autorotate functionality,
+	// use Pixbuf.RotateSimple() and Pixbuf.Flip() for implementation
+
+	img, _, err := image.Decode(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to decode image: %w", err)
 	}
 
-	pixbuf, err := w.GetPixbuf()
+	bounds := img.Bounds()
+	w := bounds.Dx()
+	h := bounds.Dy()
+
+	pixbuf, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, true, 8, w, h)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create Pixbuf: %w", err)
 	}
 
-	if autorotate == false {
-		return pixbuf, nil
-	}
+	dstPixels := pixbuf.GetPixels()
+	nrgba := image.NewNRGBA(image.Rect(0, 0, w, h))
+	draw.Draw(nrgba, nrgba.Bounds(), img, bounds.Min, draw.Src)
+	copy(dstPixels, nrgba.Pix)
 
-	return pixbuf.ApplyEmbeddedOrientation()
+	return pixbuf, nil
 }
 
 type File struct {

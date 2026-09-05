@@ -1,4 +1,12 @@
-github.com/gotk3/gotk3 v0.6.0 h1:Aqlq4/6VabNwtCyA9M9zFNad5yHAqCi5heWnZ9y+3dA=
-github.com/gotk3/gotk3 v0.6.0/go.mod h1:/hqFpkNa9T3JgNAE2fLvCdov7c5bw//FHNZrZ3Uv9/Q=
+github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017 h1:awJfkE1xXsPK+yOi1JfFBYCrSBkZXWbOgEFL6dmYeUA=
+github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017/go.mod h1:47yJHzYP/+2SCHY45B0eyR1QaecoOhkTTpS7UasE0DY=
+github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a h1:eSqaRmdlZ9JsJ7JuWfDr3ym3monToXRczohBOL+heVQ=
+github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a/go.mod h1:US5WvgEHtG+BvWNNs6gk937h0QL2g2x+r7RH8m3g80Y=
+github.com/gen2brain/gav1d v0.2.5 h1:Zg5/DE1JBdf8kxZqIvNo2ZEizF9DVF9jdPTAKJQZbOY=
+github.com/gen2brain/gav1d v0.2.5/go.mod h1:ReFKjHq7pvRhEk+pgRPAo9gOlcrf51sdzVcAbbX7e0E=
+github.com/gen2brain/jxl v0.2.0 h1:cXSQnfbcC0JGFzaI344VzPMbe7mh6rYc0tjPcBUsE4U=
+github.com/gen2brain/jxl v0.2.0/go.mod h1:VjJHRai/8I8Es01mULqyiOihRBOjJr1Zo+NoN/MyIwo=
 github.com/gotk3/gotk3 v0.6.1 h1:GJ400a0ecEEWrzjBvzBzH+pB/esEMIGdB9zPSmBdoeo=
 github.com/gotk3/gotk3 v0.6.1/go.mod h1:/hqFpkNa9T3JgNAE2fLvCdov7c5bw//FHNZrZ3Uv9/Q=
+golang.org/x/image v0.45.0 h1:FMb1nTbH5H9vF55SriQHgFw5GnNL9Jg6L25BwXKzhB0=
+golang.org/x/image v0.45.0/go.mod h1:n62x/7RqlwXDvGsSU4u6IUTUf6KghUZ9Bt7cG/T9Fx4=
