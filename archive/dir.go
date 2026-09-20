@@ -17,10 +17,11 @@ package archive
 
 import (
 	"errors"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 type Dir struct {
@@ -73,19 +74,18 @@ func (d *Dir) checkbounds(i int) error {
 	return nil
 }
 
-func (d *Dir) Load(i int, autorotate bool) (*gdk.Pixbuf, error) {
+func (d *Dir) Load(i int, autorotate bool) (*qt6.QImage, error) {
 	if err := d.checkbounds(i); err != nil {
 		return nil, err
 	}
 
 	path := filepath.Join(d.path, d.filenames[i])
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close()
-	return LoadPixbuf(f, autorotate)
+	return LoadQImage(data, filepath.Ext(d.filenames[i]), autorotate)
 }
 
 func (d *Dir) Name(i int) (string, error) {
@@ -98,6 +98,15 @@ func (d *Dir) Name(i int) (string, error) {
 
 func (d *Dir) Len() int {
 	return len(d.filenames)
+}
+
+func (d *Dir) Locate(name string) int {
+	for i, n := range d.filenames {
+		if strings.EqualFold(n, name) {
+			return i
+		}
+	}
+	return -1
 }
 
 func (d *Dir) Close() error {

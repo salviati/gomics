@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1055</width>
+    <height>741</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Gomics</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QGraphicsView" name="Image"/>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1055</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <widget class="QMenu" name="menu_Recent_Files">
+     <property name="title">
+      <string>&amp;Recent Files</string>
+     </property>
+     <addaction name="action_no_recent_items"/>
+    </widget>
+    <addaction name="actionOpen"/>
+    <addaction name="menu_Recent_Files"/>
+    <addaction name="actionClose"/>
+    <addaction name="actionSave_Image"/>
+    <addaction name="separator"/>
+    <addaction name="action_Quit"/>
+   </widget>
+   <widget class="QMenu" name="menu_Edit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <addaction name="action_Preferences"/>
+   </widget>
+   <widget class="QMenu" name="menu_View">
+    <property name="title">
+     <string>&amp;View</string>
+    </property>
+    <widget class="QMenu" name="menu_Zoom">
+     <property name="title">
+      <string>Zoom</string>
+     </property>
+     <addaction name="actionZoom_25"/>
+     <addaction name="actionZoom_33"/>
+     <addaction name="actionZoom_50"/>
+     <addaction name="actionZoom_66"/>
+     <addaction name="actionZoom_75"/>
+     <addaction name="actionZoom_100"/>
+     <addaction name="actionZoom_125"/>
+     <addaction name="actionZoom_150"/>
+     <addaction name="actionZoom_200"/>
+     <addaction name="actionZoom_300"/>
+     <addaction name="actionZoom_400"/>
+     <addaction name="actionZoom_800"/>
+    </widget>
+    <widget class="QMenu" name="menu_Rotate">
+     <property name="title">
+      <string>Rotate</string>
+     </property>
+     <addaction name="actionRotate_0"/>
+     <addaction name="actionRotate_90"/>
+     <addaction name="actionRotate_180"/>
+     <addaction name="actionRotate_270"/>
+    </widget>
+    <addaction name="actionShrink_large_images"/>
+    <addaction name="actionEnlarge_small_images"/>
+    <addaction name="separator"/>
+    <addaction name="actionBest_fit"/>
+    <addaction name="menu_Zoom"/>
+    <addaction name="actionFit_to_width"/>
+    <addaction name="actionFit_to_height"/>
+    <addaction name="separator"/>
+    <addaction name="actionFullscreen"/>
+    <addaction name="actionSeamless_mode"/>
+    <addaction name="actionRandom_ordering"/>
+    <addaction name="separator"/>
+    <addaction name="actionV_flip"/>
+    <addaction name="actionH_flip"/>
+    <addaction name="actionManga_mode"/>
+    <addaction name="actionDouble_page"/>
+    <addaction name="menu_Rotate"/>
+   </widget>
+   <widget class="QMenu" name="menuNavigation">
+    <property name="title">
+     <string>Navigation</string>
+    </property>
+    <addaction name="actionPrevious_page"/>
+    <addaction name="actionNext_page"/>
+    <addaction name="separator"/>
+    <addaction name="actionSkip_forward"/>
+    <addaction name="actionSkip_backward"/>
+    <addaction name="separator"/>
+    <addaction name="actionFirst_page"/>
+    <addaction name="actionLast_page"/>
+    <addaction name="separator"/>
+    <addaction name="actionPrevious_archive"/>
+    <addaction name="actionNext_archive"/>
+    <addaction name="separator"/>
+    <addaction name="actionGo_to_page"/>
+   </widget>
+   <widget class="QMenu" name="menuBookmarks">
+    <property name="title">
+     <string>Bookmarks</string>
+    </property>
+    <addaction name="actionAdd_bookmark"/>
+    <addaction name="separator"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menu_Edit"/>
+   <addaction name="menu_View"/>
+   <addaction name="menuNavigation"/>
+   <addaction name="menuBookmarks"/>
+   <addaction name="menuHelp"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>toolBar</string>
+   </property>
+   <property name="movable">
+    <bool>false</bool>
+   </property>
+   <property name="floatable">
+    <bool>false</bool>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionFirst_page"/>
+   <addaction name="actionSkip_backward"/>
+   <addaction name="actionPrevious_page"/>
+   <addaction name="actionNext_page"/>
+   <addaction name="actionSkip_forward"/>
+   <addaction name="actionLast_page"/>
+   <addaction name="separator"/>
+   <addaction name="actionPrevious_archive"/>
+   <addaction name="actionNext_archive"/>
+   <addaction name="separator"/>
+   <addaction name="actionPrevious_Scene"/>
+   <addaction name="actionNext_scene"/>
+  </widget>
+  <action name="actionOpen">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::DocumentOpen"/>
+   </property>
+   <property name="text">
+    <string>&amp;Open</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="action_no_recent_items">
+   <property name="text">
+    <string>No items found</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="icon">
+    <iconset theme="window-close"/>
+   </property>
+   <property name="text">
+    <string>&amp;Close</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+C</string>
+   </property>
+  </action>
+  <action name="actionSave_Image">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::DocumentSave"/>
+   </property>
+   <property name="text">
+    <string>&amp;Save Image</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="action_Quit">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::WindowClose"/>
+   </property>
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
+  <action name="action_Preferences">
+   <property name="text">
+    <string>&amp;Preferences</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionShrink_large_images">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Shrink large images</string>
+   </property>
+   <property name="shortcut">
+    <string>S</string>
+   </property>
+  </action>
+  <action name="actionEnlarge_small_images">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Enlarge small images</string>
+   </property>
+   <property name="shortcut">
+    <string>E</string>
+   </property>
+  </action>
+  <action name="actionBest_fit">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::ZoomFitBest"/>
+   </property>
+   <property name="text">
+    <string>Best fit</string>
+   </property>
+   <property name="shortcut">
+    <string>B</string>
+   </property>
+  </action>
+  <action name="actionZoom_25">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>25%</string>
+   </property>
+  </action>
+  <action name="actionZoom_33">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>33%</string>
+   </property>
+  </action>
+  <action name="actionZoom_50">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>50%</string>
+   </property>
+  </action>
+  <action name="actionZoom_66">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>66%</string>
+   </property>
+  </action>
+  <action name="actionZoom_75">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>75%</string>
+   </property>
+  </action>
+  <action name="actionZoom_100">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>100%</string>
+   </property>
+   <property name="shortcut">
+    <string>O</string>
+   </property>
+  </action>
+  <action name="actionZoom_125">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>125%</string>
+   </property>
+  </action>
+  <action name="actionZoom_150">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>150%</string>
+   </property>
+  </action>
+  <action name="actionZoom_200">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>200%</string>
+   </property>
+  </action>
+  <action name="actionZoom_300">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>300%</string>
+   </property>
+  </action>
+  <action name="actionZoom_400">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>400%</string>
+   </property>
+  </action>
+  <action name="actionZoom_800">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>800%</string>
+   </property>
+  </action>
+  <action name="actionRotate_0">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>0°</string>
+   </property>
+  </action>
+  <action name="actionRotate_90">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>90°</string>
+   </property>
+  </action>
+  <action name="actionRotate_180">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>180°</string>
+   </property>
+  </action>
+  <action name="actionRotate_270">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>270°</string>
+   </property>
+  </action>
+  <action name="actionFit_to_width">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Fit to width</string>
+   </property>
+   <property name="shortcut">
+    <string>W</string>
+   </property>
+  </action>
+  <action name="actionFit_to_height">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Fit to height</string>
+   </property>
+   <property name="shortcut">
+    <string>H</string>
+   </property>
+  </action>
+  <action name="actionFullscreen">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::ViewFullscreen"/>
+   </property>
+   <property name="text">
+    <string>Fullscreen</string>
+   </property>
+   <property name="shortcut">
+    <string>F</string>
+   </property>
+  </action>
+  <action name="actionSeamless_mode">
+   <property name="text">
+    <string>Seamless mode</string>
+   </property>
+  </action>
+  <action name="actionRandom_ordering">
+   <property name="text">
+    <string>Random ordering</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="actionV_flip">
+   <property name="icon">
+    <iconset theme="object-flip-vertical"/>
+   </property>
+   <property name="text">
+    <string>Vertical Flip</string>
+   </property>
+   <property name="shortcut">
+    <string>V</string>
+   </property>
+  </action>
+  <action name="actionH_flip">
+   <property name="icon">
+    <iconset theme="object-flip-horizontal"/>
+   </property>
+   <property name="text">
+    <string>Horizontal Flip</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+V</string>
+   </property>
+  </action>
+  <action name="actionManga_mode">
+   <property name="text">
+    <string>Manga mode</string>
+   </property>
+   <property name="shortcut">
+    <string>M</string>
+   </property>
+  </action>
+  <action name="actionDouble_page">
+   <property name="text">
+    <string>Double page</string>
+   </property>
+   <property name="shortcut">
+    <string>D</string>
+   </property>
+  </action>
+  <action name="actionPrevious_page">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoPrevious"/>
+   </property>
+   <property name="text">
+    <string>Previous page</string>
+   </property>
+   <property name="shortcut">
+    <string>PgUp</string>
+   </property>
+  </action>
+  <action name="actionNext_page">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoNext"/>
+   </property>
+   <property name="text">
+    <string>Next page</string>
+   </property>
+   <property name="shortcut">
+    <string>PgDown</string>
+   </property>
+  </action>
+  <action name="actionSkip_forward">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::MediaSeekForward"/>
+   </property>
+   <property name="text">
+    <string>Skip forward</string>
+   </property>
+  </action>
+  <action name="actionSkip_backward">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::MediaSeekBackward"/>
+   </property>
+   <property name="text">
+    <string>Skip backward</string>
+   </property>
+  </action>
+  <action name="actionFirst_page">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::MediaSkipBackward"/>
+   </property>
+   <property name="text">
+    <string>First page</string>
+   </property>
+   <property name="shortcut">
+    <string>Home</string>
+   </property>
+  </action>
+  <action name="actionLast_page">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::MediaSkipForward"/>
+   </property>
+   <property name="text">
+    <string>Last page</string>
+   </property>
+   <property name="shortcut">
+    <string>End</string>
+   </property>
+  </action>
+  <action name="actionPrevious_archive">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoPrevious"/>
+   </property>
+   <property name="text">
+    <string>Previous archive</string>
+   </property>
+  </action>
+  <action name="actionNext_archive">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoNext"/>
+   </property>
+   <property name="text">
+    <string>Next archive</string>
+   </property>
+  </action>
+  <action name="actionGo_to_page">
+   <property name="text">
+    <string>Go to page</string>
+   </property>
+   <property name="shortcut">
+    <string>G</string>
+   </property>
+  </action>
+  <action name="actionAdd_bookmark">
+   <property name="text">
+    <string>Add bookmark</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+B</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::HelpAbout"/>
+   </property>
+   <property name="text">
+    <string>About</string>
+   </property>
+   <property name="shortcut">
+    <string>F1</string>
+   </property>
+  </action>
+  <action name="actionPrevious_Scene">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoPrevious"/>
+   </property>
+   <property name="text">
+    <string>Previous Scene</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionNext_scene">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::GoNext"/>
+   </property>
+   <property name="text">
+    <string>Next scene</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

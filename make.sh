@@ -1,3 +1,3 @@
-BUILD_DATE=`date +'%Y%m%d'`
-GIT_REVISON=`git rev-parse HEAD`
-go get -ldflags="-X main.buildDate=$BUILD_DATE -X main.gitVersion=$GIT_REVISON"
+#!/bin/sh
+go build -ldflags "-s -w -X main.buildDate=$(date +%Y%m%d) -X main.gitVersion=$(git rev-parse HEAD)" -o gomics .
+#upx --best gomics

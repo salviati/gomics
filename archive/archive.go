@@ -17,7 +17,7 @@ package archive
 
 import (
 	"errors"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,10 +28,11 @@ var (
 )
 
 type Archive interface {
-	Load(i int, autorotate bool) (*gdk.Pixbuf, error)
+	Load(i int, autorotate bool) (*qt6.QImage, error)
 	Name(i int) (string, error)
 	Len() int
 	Close() error
+	Locate(name string) int // index of file named `name`, or -1
 }
 
 const (
@@ -57,6 +58,10 @@ func NewArchive(path string) (Archive, error) {
 		if strings.HasSuffix(strings.ToLower(path), ".tar.gz") {
 			// TODO
 		}
+	}
+
+	if IsImageFile(path) {
+		return NewDir(filepath.Dir(path))
 	}
 
 	return nil, errors.New("Unknown archive type")

@@ -18,41 +18,37 @@ package archive
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
 	"github.com/salviati/gomics/natsort"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	_ "github.com/dblezek/tga"
-	_ "github.com/gen2brain/gav1d/avif"
-	_ "github.com/gen2brain/jxl"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
-	"image"
-	"image/draw"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 )
-
-type Loader interface {
-	Load(i int) (*gdk.Pixbuf, error)
-	Name(i int) (string, error)
-	Len() int
-}
 
 // TODO(utkan): check rar support
 
 // var ArchiveExtensions = []string{".zip", ".cbz", ".7z", ".rar", ".tar", ".tgz", ".tbz2", ".cb7", ".cbr", ".cbt"}
 var ArchiveExtensions = []string{".zip", ".cbz"}
-var ImageExtensions = []string{".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".jxl", ".png", ".targa", ".tga", ".tif", ".tiff", ".webp"}
+var ImageExtensions []string
+
+const ImageReaderAllocLimitMB = 1024
 
 func init() {
+	seen := make(map[string]bool)
+	addExt := func(ext string) {
+		if !seen[ext] {
+			seen[ext] = true
+			ImageExtensions = append(ImageExtensions, ext)
+		}
+	}
+	for _, format := range qt6.QImageReader_SupportedImageFormats() {
+		addExt("." + strings.ToLower(string(format)))
+	}
+
+	// No allocation limit: some large images exceed the default cap and fail
+	// to decode. 0 removes the limit so they load (one-time global setting).
+	qt6.QImageReader_SetAllocationLimit(ImageReaderAllocLimitMB)
 }
 
 func ExtensionMatch(p string, extensions []string) bool {
@@ -63,6 +59,16 @@ func ExtensionMatch(p string, extensions []string) bool {
 		}
 	}
 	return false
+}
+
+// IsImageFile reports whether path is a regular file whose extension is in
+// ImageExtensions (a directory or missing path never matches).
+func IsImageFile(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil || !fi.Mode().IsRegular() {
+		return false
+	}
+	return ExtensionMatch(path, ImageExtensions)
 }
 
 func min(a, b int) int {
@@ -135,30 +141,19 @@ func ListArchives(dir string) (anames []string, err error) {
 	return
 }
 
-func LoadPixbuf(r io.Reader, autorotate bool) (*gdk.Pixbuf, error) {
-	// TODO(utkan): use an EXIF library to restore autorotate functionality,
-	// use Pixbuf.RotateSimple() and Pixbuf.Flip() for implementation
-
-	img, _, err := image.Decode(r)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to decode image: %w", err)
+func LoadQImage(data []byte, ext string, autorotate bool) (*qt6.QImage, error) {
+	buf := qt6.NewQBuffer()
+	buf.SetData(data)
+	reader := qt6.NewQImageReader2(buf.QIODevice)
+	if ext != "" {
+		reader.SetFormat([]byte(strings.TrimPrefix(ext, ".")))
 	}
-
-	bounds := img.Bounds()
-	w := bounds.Dx()
-	h := bounds.Dy()
-
-	pixbuf, err := gdk.PixbufNew(gdk.COLORSPACE_RGB, true, 8, w, h)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to create Pixbuf: %w", err)
+	reader.SetAutoTransform(autorotate)
+	img := reader.Read() // NOTE: fatal-errors (unrecoverable) on undecodable data — accepted risk for EXIF autorotate
+	if img == nil || img.Width() <= 0 {
+		return nil, errors.New("failed to decode image")
 	}
-
-	dstPixels := pixbuf.GetPixels()
-	nrgba := image.NewNRGBA(image.Rect(0, 0, w, h))
-	draw.Draw(nrgba, nrgba.Bounds(), img, bounds.Min, draw.Src)
-	copy(dstPixels, nrgba.Pix)
-
-	return pixbuf, nil
+	return img, nil
 }
 
 type File struct {

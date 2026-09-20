@@ -26,10 +26,12 @@ const (
 	ImageDir            = "images"         // relative to config dir
 	PNGCompressionLevel = 5
 	ThumbnailSize       = 128
+	MaxRecent           = 8
 )
 
 type Config struct {
 	ZoomMode            string
+	ZoomLevel           int
 	Enlarge             bool
 	Shrink              bool
 	LastDirectory       string
@@ -41,9 +43,11 @@ type Config struct {
 	Seamless            bool
 	HFlip               bool
 	VFlip               bool
+	Rotation            int
 	DoublePage          bool
 	MangaMode           bool
 	OneWide             bool
+	SingleCover         bool
 	EmbeddedOrientation bool
 	Interpolation       int
 	ImageDiffThres      float32
@@ -53,6 +57,7 @@ type Config struct {
 	HideIdleCursor      bool
 	UseBackgroundColor  bool
 	BackgroundColor     string
+	Recent              []string
 }
 
 func (c *Config) Load(path string) error {
@@ -87,13 +92,15 @@ func (c *Config) Save(path string) error {
 
 func (c *Config) Defaults() {
 	c.ZoomMode = "BestFit"
+	c.ZoomLevel = 100
+	c.Rotation = 0
 	c.Shrink = true
 	c.Enlarge = false
 	c.WindowWidth = 640
 	c.WindowHeight = 480
 	c.NSkip = 10
 	c.Seamless = true
-	c.Interpolation = 2
+	c.Interpolation = 1
 	c.EmbeddedOrientation = true
 	c.ImageDiffThres = 0.4
 	c.SceneScanSkip = 5

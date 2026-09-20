@@ -18,9 +18,11 @@ package archive
 import (
 	"archive/zip"
 	"errors"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
+	"io"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 type Zip struct {
@@ -71,7 +73,7 @@ func (ar *Zip) checkbounds(i int) error {
 	return nil
 }
 
-func (ar *Zip) Load(i int, autorotate bool) (*gdk.Pixbuf, error) {
+func (ar *Zip) Load(i int, autorotate bool) (*qt6.QImage, error) {
 	if err := ar.checkbounds(i); err != nil {
 		return nil, err
 	}
@@ -82,7 +84,13 @@ func (ar *Zip) Load(i int, autorotate bool) (*gdk.Pixbuf, error) {
 	}
 
 	defer f.Close()
-	return LoadPixbuf(f, autorotate)
+
+	data := make([]byte, ar.files[i].UncompressedSize64)
+	if _, err := io.ReadFull(f, data); err != nil {
+		return nil, err
+	}
+
+	return LoadQImage(data, filepath.Ext(ar.files[i].Name), autorotate)
 }
 
 func (ar *Zip) Name(i int) (string, error) {
@@ -95,6 +103,15 @@ func (ar *Zip) Name(i int) (string, error) {
 
 func (ar *Zip) Len() int {
 	return len(ar.files)
+}
+
+func (ar *Zip) Locate(name string) int {
+	for i, f := range ar.files {
+		if strings.EqualFold(f.Name, name) {
+			return i
+		}
+	}
+	return -1
 }
 
 func (ar *Zip) Close() error {

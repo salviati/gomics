@@ -16,8 +16,7 @@
 package main
 
 import (
-	"bytes"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
 	"github.com/salviati/gomics/archive"
 	"runtime"
 )
@@ -67,15 +66,16 @@ func fit(sw, sh, fw, fh int) (int, int) {
 }
 
 func gc() {
-	// TODO do some checks?
 	runtime.GC()
 	runtime.GC()
 }
 
-func mustLoadPixbuf(data []byte) *gdk.Pixbuf {
-	pixbuf, err := archive.LoadPixbuf(bytes.NewBuffer(data), true)
-	if err != nil {
-		panic(err.Error())
+func mustLoadQImage(data []byte) *qt6.QImage {
+	img := qt6.NewQImage()
+	if !img.LoadFromDataWithData(data) {
+		panic("failed to load image")
 	}
-	return pixbuf
+	return img
 }
+
+var ImageExtensions = archive.ImageExtensions

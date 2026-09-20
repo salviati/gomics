@@ -16,18 +16,26 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/glib"
-	"github.com/gotk3/gotk3/gtk"
 	"log"
-	"net/url"
-	"reflect"
+	"math"
+	"os"
+	"os/user"
+	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"time"
+
+	"github.com/mappu/miqt/qt6"
+	"github.com/salviati/gomics/archive"
+	"github.com/salviati/gomics/imgdiff"
 )
 
-import _ "embed"
+import (
+	_ "embed"
+)
 
 //go:embed about.jpg
 var about []byte
@@ -35,161 +43,569 @@ var about []byte
 //go:embed icon.png
 var icon []byte
 
-//go:embed gomics.glade
-var gomics_glade string
-
 type GUI struct {
-	MainWindow                     *gtk.Window            `build:"MainWindow"`
-	VBox                           *gtk.Box               `build:"VBox"`
-	Menubar                        *gtk.MenuBar           `build:"Menubar"`
-	ScrolledWindow                 *gtk.ScrolledWindow    `build:"ScrolledWindow"`
-	Viewport                       *gtk.Viewport          `build:"Viewport"`
-	ImageBox                       *gtk.Box               `build:"ImageBox"`
-	ImageL                         *gtk.Image             `build:"ImageL"`
-	ImageR                         *gtk.Image             `build:"ImageR"`
-	Statusbar                      *gtk.Statusbar         `build:"Statusbar"`
-	AboutDialog                    *gtk.AboutDialog       `build:"AboutDialog"`
-	MenuItemAbout                  *gtk.MenuItem          `build:"MenuItemAbout"`
-	MenuItemOpen                   *gtk.MenuItem          `build:"MenuItemOpen"`
-	MenuItemClose                  *gtk.MenuItem          `build:"MenuItemClose"`
-	MenuItemQuit                   *gtk.MenuItem          `build:"MenuItemQuit"`
-	MenuItemSaveImage              *gtk.MenuItem          `build:"MenuItemSaveImage"`
-	FileChooserDialogArchive       *gtk.FileChooserDialog `build:"FileChooserDialogArchive"`
-	Toolbar                        *gtk.Toolbar           `build:"Toolbar"`
-	BackgroundColorButton          *gtk.ColorButton       `build:"BackgroundColorButton"`
-	UseBackgroundColorCheckButton  *gtk.CheckButton       `build:"UseBackgroundColorCheckButton"`
-	ButtonNextPage                 *gtk.ToolButton        `build:"ButtonNextPage"`
-	ButtonPreviousPage             *gtk.ToolButton        `build:"ButtonPreviousPage"`
-	ButtonLastPage                 *gtk.ToolButton        `build:"ButtonLastPage"`
-	ButtonFirstPage                *gtk.ToolButton        `build:"ButtonFirstPage"`
-	ButtonNextArchive              *gtk.ToolButton        `build:"ButtonNextArchive"`
-	ButtonPreviousArchive          *gtk.ToolButton        `build:"ButtonPreviousArchive"`
-	ButtonNextScene                *gtk.ToolButton        `build:"ButtonNextScene"`
-	ButtonPreviousScene            *gtk.ToolButton        `build:"ButtonPreviousScene"`
-	ButtonSkipForward              *gtk.ToolButton        `build:"ButtonSkipForward"`
-	ButtonSkipBackward             *gtk.ToolButton        `build:"ButtonSkipBackward"`
-	MenuItemNextPage               *gtk.MenuItem          `build:"MenuItemNextPage"`
-	MenuItemPreviousPage           *gtk.MenuItem          `build:"MenuItemPreviousPage"`
-	MenuItemLastPage               *gtk.MenuItem          `build:"MenuItemLastPage"`
-	MenuItemFirstPage              *gtk.MenuItem          `build:"MenuItemFirstPage"`
-	MenuItemNextArchive            *gtk.MenuItem          `build:"MenuItemNextArchive"`
-	MenuItemPreviousArchive        *gtk.MenuItem          `build:"MenuItemPreviousArchive"`
-	MenuItemSkipForward            *gtk.MenuItem          `build:"MenuItemSkipForward"`
-	MenuItemSkipBackward           *gtk.MenuItem          `build:"MenuItemSkipBackward"`
-	MenuItemEnlarge                *gtk.CheckMenuItem     `build:"MenuItemEnlarge"`
-	MenuItemShrink                 *gtk.CheckMenuItem     `build:"MenuItemShrink"`
-	MenuItemFullscreen             *gtk.CheckMenuItem     `build:"MenuItemFullscreen"`
-	MenuItemSeamless               *gtk.CheckMenuItem     `build:"MenuItemSeamless"`
-	MenuItemRandom                 *gtk.CheckMenuItem     `build:"MenuItemRandom"`
-	MenuItemPreferences            *gtk.MenuItem          `build:"MenuItemPreferences"`
-	MenuItemHFlip                  *gtk.CheckMenuItem     `build:"MenuItemHFlip"`
-	MenuItemVFlip                  *gtk.CheckMenuItem     `build:"MenuItemVFlip"`
-	MenuItemMangaMode              *gtk.CheckMenuItem     `build:"MenuItemMangaMode"`
-	MenuItemDoublePage             *gtk.CheckMenuItem     `build:"MenuItemDoublePage"`
-	MenuItemGoTo                   *gtk.MenuItem          `build:"MenuItemGoTo"`
-	GoToThumbnailImage             *gtk.Image             `build:"GoToThumbnailImage"`
-	MenuItemBestFit                *gtk.RadioMenuItem     `build:"MenuItemBestFit"`
-	MenuItemOriginal               *gtk.RadioMenuItem     `build:"MenuItemOriginal"`
-	MenuItemFitToWidth             *gtk.RadioMenuItem     `build:"MenuItemFitToWidth"`
-	MenuItemFitToHeight            *gtk.RadioMenuItem     `build:"MenuItemFitToHeight"`
-	PreferencesDialog              *gtk.Dialog            `build:"PreferencesDialog"`
-	PagesToSkipSpinButton          *gtk.SpinButton        `build:"PagesToSkipSpinButton"`
-	GoToDialog                     *gtk.Dialog            `build:"GoToDialog"`
-	GoToSpinButton                 *gtk.SpinButton        `build:"GoToSpinButton"`
-	GoToScrollbar                  *gtk.Scrollbar         `build:"GoToScrollbar"`
-	InterpolationComboBoxText      *gtk.ComboBoxText      `build:"InterpolationComboBoxText"`
-	OneWideCheckButton             *gtk.CheckButton       `build:"OneWideCheckButton"`
-	SmartScrollCheckButton         *gtk.CheckButton       `build:"SmartScrollCheckButton"`
-	EmbeddedOrientationCheckButton *gtk.CheckButton       `build:"EmbeddedOrientationCheckButton"`
-	HideIdleCursorCheckButton      *gtk.CheckButton       `build:"HideIdleCursorCheckButton"`
-	AddBookmarkMenuItem            *gtk.MenuItem          `build:"AddBookmarkMenuItem"`
-	MenuBookmarks                  *gtk.Menu              `build:"MenuBookmarks"`
-	RecentChooserMenu              *gtk.RecentChooserMenu `build:"RecentChooserMenu"`
-	Config                         Config
-	State                          State
-	RecentManager                  *gtk.RecentManager
+	*MainWindowUi
+	PreferencesUI    *PreferencesDialogUi
+	GoToUI           *GoToDialogUi
+	AboutUI          *AboutDialogUi
+	Config           Config
+	State            State
+	zoomLevelActions []*qt6.QAction
+	rotationActions  []*qt6.QAction
+	StatusParts      *StatusParts
 }
 
-// LoadWidgets() fills the GUI struct with widgets built from the
-// glade UI file at the specified location
-func (gui *GUI) LoadWidgets() (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
-		}
-	}()
+var zoomLevels = []int{25, 33, 50, 66, 75, 100, 125, 150, 200, 300, 400, 800}
+var rotationLevels = []int{0, 90, 180, 270}
 
-	builder, err := gtk.BuilderNew()
-	if err != nil {
-		return err
-	}
-
-	if err = builder.AddFromString(gomics_glade); err != nil {
-		return err
-	}
-
-	guiStruct := reflect.ValueOf(gui).Elem()
-
-	for i := 0; i < guiStruct.NumField(); i++ {
-		field := guiStruct.Field(i)
-		widget := guiStruct.Type().Field(i).Tag.Get("build")
-		if widget == "" {
-			continue
-		}
-
-		obj, err := builder.GetObject(widget)
-		if err != nil {
-			return err
-		}
-
-		w := reflect.ValueOf(obj).Convert(field.Type())
-		field.Set(w)
-	}
-
-	return nil
+type Bookmark struct {
+	Path       string
+	Page       uint
+	TotalPages uint
+	Added      time.Time
 }
 
-func (gui *GUI) SetCursor(cursorName string) (err error) {
-	disp, err := gdk.DisplayGetDefault()
-	if err != nil {
-		log.Println("Error setting cursor, could not get default display.")
-		return err
-	}
+var bookmarkActionsList []*qt6.QAction
+var recentFileActions []*qt6.QAction
 
-	win, err := gui.Viewport.GetWindow()
-	if err != nil {
-		log.Println("Error setting cursor, could not get viewport window.")
-		return err
-	}
+const StatusPartsMinWidth = 12
 
-	newCursor, err := gdk.CursorNewFromName(disp, cursorName)
-	if err != nil {
-		log.Println("Error setting cursor, could not get cursor: ", cursorName)
-		return err
-	}
-
-	win.SetCursor(newCursor)
-	return nil
+// The status bar is a row of individual sunken cells, one per logical part
+// of the message, not QStatusBar's temporary message slot: Qt writes menu
+// status hints into that slot while the mouse is over the menubar and
+// clears it on leave, which wiped our status.
+type StatusParts struct {
+	labels []*qt6.QLabel
+	bar    *qt6.QStatusBar
 }
 
-func (gui *GUI) HideCursor() {
-	if err := gui.SetCursor("none"); err != nil {
-		log.Print("Error hiding cursor")
+func NewStatusParts(bar *qt6.QStatusBar, texts ...string) *StatusParts {
+	sp := &StatusParts{bar: bar}
+	sp.Set(texts...)
+	return sp
+}
+
+func (sp *StatusParts) set(idx int, text string) {
+	sp.labels[idx].SetText(text)
+}
+
+func (sp *StatusParts) Set(texts ...string) {
+	if len(sp.labels) != len(texts)+1 {
+		for _, lbl := range sp.labels {
+			sp.bar.RemoveWidget(lbl.QWidget)
+			lbl.DeleteLater()
+		}
+
+		if len(texts) == 1 && texts[0] == "" {
+			texts = make([]string, 0, 0)
+		}
+
+		sp.labels = make([]*qt6.QLabel, len(texts)+1)
+
+		for i := range sp.labels {
+			lbl := qt6.NewQLabel2()
+			lbl.SetFrameShape(qt6.QFrame__Panel)
+			lbl.SetFrameShadow(qt6.QFrame__Sunken)
+			if i < len(texts) {
+				lbl.SetMinimumWidth(StatusPartsMinWidth)
+				sp.bar.AddWidget2(lbl.QWidget, 0)
+			} else {
+				sp.bar.AddWidget2(lbl.QWidget, 1) // absorbs extra space
+			}
+			sp.labels[i] = lbl
+		}
+	}
+
+	for i, text := range texts {
+		sp.set(i, text)
+	}
+}
+
+func (gui *GUI) SetStatus(msgs ...string) {
+	gui.StatusParts.Set(msgs...)
+}
+
+func (gui *GUI) ResizeEvent() {
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) ShowError(msg string) {
+	log.Println(msg)
+	gui.SetStatus(msg)
+}
+
+func (gui *GUI) Close() {
+	if !gui.Loaded() {
 		return
 	}
 
-	gui.State.CursorHidden = true
-}
+	gui.State.Archive.Close()
 
-func (gui *GUI) ShowCursor() {
-	if err := gui.SetCursor("default"); err != nil {
-		log.Print("Error showing cursor")
-		return
-	}
+	gui.State.Archive = nil
+	gui.State.ArchiveName = ""
+	gui.State.ArchivePath = ""
+	gui.State.ArchivePos = 0
 
+	gui.State.ImageHash = nil
+
+	// Reset the scene rect to the viewport: Blit only sizes it while an
+	// image is loaded, so after Close the stale oversized rect would let
+	// Qt show scrollbars on a window shrink (scene rect > viewport).
+	vw, vh := gui.GetSize()
+	gui.Image.SetSceneRect2(0, 0, float64(vw), float64(vh))
+	gui.Image.Scene().Clear()
+	gui.State.QImageL = nil
+	gui.State.QImageR = nil
+	gui.State.GoToThumbnail = nil
+	gui.State.CursorLastMoved = time.Now()
 	gui.State.CursorHidden = false
+	gui.State.CursorForceShown = false
+	gui.SetStatus("No file loaded")
+	gui.MainWindow.SetWindowTitle("Gomics")
+	gc()
 }
 
+// recordRecent: only explicit opens (Open dialog, CLI) add Recent Files
+// entries; seamless navigation and reopens never do.
+func (gui *GUI) LoadArchive(path string, recordRecent bool) {
+	if len(path) == 0 {
+		return
+	}
+
+	if len(gui.State.ArchivePath) > 0 {
+		// handle absolute/relative - LoadArchive keeps os.Chdir, so path resolves relative to archive dir
+		// but we need to handle absolute paths here
+	}
+
+	if gui.Loaded() {
+		gui.Close()
+	}
+
+	gui.State.ImageHash = make(map[int]imgdiff.Hash)
+
+	gui.State.ArchivePath = path
+	if archive.IsImageFile(path) {
+		gui.State.ArchiveName = filepath.Base(filepath.Dir(path))
+	} else {
+		gui.State.ArchiveName = filepath.Base(path)
+	}
+
+	var err error
+	if gui.State.Archive, err = archive.NewArchive(path); err != nil {
+		gui.ShowError("Failed to open " + path + ": " + err.Error())
+		return
+	}
+
+	start := 0
+	if archive.IsImageFile(path) {
+		if i := gui.State.Archive.Locate(filepath.Base(path)); i >= 0 {
+			start = i
+		}
+	}
+
+	// chdir into the archive's directory (a file's parent dir), so relative
+	// paths resolve against it, not the launch cwd.
+	os.Chdir(filepath.Dir(path))
+
+	gui.setPage(start)
+
+	if recordRecent {
+		gui.updateRecentFiles(path)
+	}
+}
+
+func (gui *GUI) LoadImage(n int) (*qt6.QImage, error) {
+	ar := gui.State.Archive
+	img, err := ar.Load(n, gui.Config.EmbeddedOrientation)
+
+	if err != nil {
+		filename, _ := ar.Name(n)
+		gui.ShowError(fmt.Sprintf(`Failed to load file #%d "%s": %s`, n+1, filename, err.Error()))
+		return nil, err
+	}
+
+	gui.State.ImageHash[n], _ = gui.ImageHash(n, nil)
+	return img, nil
+}
+
+func (gui *GUI) SetPage(n int) {
+	if !gui.Loaded() {
+		return
+	}
+
+	if n < 0 {
+		n = 0
+	}
+
+	if n >= gui.State.Archive.Len() {
+		n = gui.State.Archive.Len() - 1
+	}
+
+	if n == gui.State.ArchivePos {
+		return
+	}
+
+	gui.setPage(n)
+}
+
+// clearDisplay resets the loaded-image state and clears the scene so no
+// stale image remains after a failed load.
+func (gui *GUI) clearDisplay() {
+	gui.State.QImageL = nil
+	gui.State.QImageR = nil
+	gui.Image.Scene().Clear()
+}
+
+func (gui *GUI) setPage(n int) {
+	if !gui.Loaded() {
+		return
+	}
+
+	gui.State.ArchivePos = n
+	gui.State.QImageR = nil
+
+	var err error
+	if gui.State.QImageL, err = gui.LoadImage(n); err != nil {
+		gui.clearDisplay()
+		return
+	}
+
+	gui.State.QImageR = nil
+	if gui.Config.DoublePage && !(gui.Config.SingleCover && n == 0) && n+1 < gui.State.Archive.Len() {
+		if img, err := gui.LoadImage(n + 1); err == nil {
+			gui.State.QImageR = img
+		}
+		// else: keep QR nil so Blit renders the left image only.
+	}
+
+	gc()
+
+	gui.Blit()
+	gui.StatusImage()
+
+	gui.scrollToTop()
+}
+
+func (gui *GUI) Scroll(dx, dy float64) {
+	if !gui.Loaded() {
+		return
+	}
+
+	vadj := gui.Image.VerticalScrollBar()
+	hadj := gui.Image.HorizontalScrollBar()
+
+	vdx := vadj.SingleStep()
+	vval := float64(vadj.Value())
+	// Qt clamps the value to [Minimum, Maximum] and Maximum is exactly where
+	// the viewport bottom meets the scene bottom (scene height - viewport
+	// height), so the edge is reached at value >= Maximum. Fitting content
+	// gives Maximum == 0, i.e. already at both edges -> page turn.
+	vupper := float64(vadj.Maximum())
+	vlower := float64(vadj.Minimum())
+
+	hdx := hadj.SingleStep()
+	hval := float64(hadj.Value())
+	hupper := float64(hadj.Maximum())
+	hlower := float64(hadj.Minimum())
+
+	if dy > 0 {
+		if vval >= vupper {
+			if gui.Config.SmartScroll {
+				gui.NextPage()
+			}
+		} else {
+			vadj.SetValue(int(clamp(vval+float64(vdx), vlower, vupper)))
+		}
+	} else if dy < 0 {
+		if vval <= vlower {
+			if gui.Config.SmartScroll {
+				gui.PreviousPage()
+			}
+		} else {
+			vadj.SetValue(int(clamp(vval-float64(vdx), vlower, vupper)))
+		}
+	}
+
+	if dx > 0 {
+		if hval >= hupper {
+			// TODO
+		} else {
+			hadj.SetValue(int(clamp(hval+float64(hdx), hlower, hupper)))
+		}
+	} else if dx < 0 {
+		if hval <= hlower {
+			// TODO
+		} else {
+			hadj.SetValue(int(clamp(hval-float64(hdx), hlower, hupper)))
+		}
+	}
+}
+
+func (gui *GUI) scrollToTop() {
+	if !gui.Loaded() {
+		return
+	}
+
+	vadj := gui.Image.VerticalScrollBar()
+	vadj.SetValue(0)
+
+	hadj := gui.Image.HorizontalScrollBar()
+	hadj.SetValue(0)
+}
+
+func (gui *GUI) Quit() {
+	gui.saveConfig()
+	gui.MainWindow.Close()
+}
+
+func (gui *GUI) saveConfig() {
+	gui.Config.WindowWidth, gui.Config.WindowHeight = gui.MainWindow.Size().Width(), gui.MainWindow.Size().Height()
+
+	if err := gui.Config.Save(filepath.Join(gui.State.ConfigPath, ConfigFile)); err != nil {
+		log.Println(err)
+	}
+}
+
+func (gui *GUI) Init() {
+	u, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gui.State.UserHome = u.HomeDir
+	gui.State.ConfigPath = filepath.Join(u.HomeDir, ConfigDir)
+
+	gui.Config.Defaults()
+	gui.Config.LastDirectory = gui.State.UserHome
+
+	if err := os.MkdirAll(gui.State.ConfigPath, 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(gui.State.ConfigPath, ImageDir), 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := gui.Config.Load(filepath.Join(gui.State.ConfigPath, ConfigFile)); err != nil {
+		if os.IsNotExist(err) == false {
+			log.Fatal(err)
+		}
+	}
+
+	// Migrate legacy zoom mode: "Original" (removed) becomes Manual 100%.
+	if gui.Config.ZoomMode == "Original" {
+		gui.Config.ZoomMode = "Manual"
+	}
+	if gui.Config.ZoomMode == "Manual" && gui.Config.ZoomLevel == 0 {
+		gui.Config.ZoomLevel = 100
+	}
+
+	gui.initUI()
+}
+
+func (gui *GUI) SetFullscreen(fullscreen bool) {
+	gui.Config.Fullscreen = fullscreen
+	if fullscreen {
+		gui.statusbar.Hide()
+		gui.toolBar.Hide()
+		gui.menubar.Hide()
+		gui.MainWindow.ShowFullScreen()
+	} else {
+		gui.statusbar.Show()
+		gui.toolBar.Show()
+		gui.menubar.Show()
+		gui.MainWindow.ShowNormal()
+	}
+
+	// Fullscreen: image fills edge-to-edge (0 margins); windowed keeps 11px.
+	if fullscreen {
+		gui.verticalLayout.SetContentsMargins(0, 0, 0, 0)
+	} else {
+		//gui.verticalLayout.SetContentsMargins(11, 11, 11, 11)
+		gui.verticalLayout.SetContentsMargins(0, 0, 0, 0)
+	}
+
+	gui.actionFullscreen.SetChecked(fullscreen)
+}
+
+func (gui *GUI) SetShrink(shrink bool) {
+	gui.Config.Shrink = shrink
+	gui.actionShrink_large_images.SetChecked(shrink)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SetEnlarge(enlarge bool) {
+	gui.Config.Enlarge = enlarge
+	gui.actionEnlarge_small_images.SetChecked(enlarge)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SetRandom(random bool) {
+	gui.Config.Random = random
+	gui.actionRandom_ordering.SetChecked(random)
+}
+
+func (gui *GUI) SetSeamless(seamless bool) {
+	gui.Config.Seamless = seamless
+	gui.actionSeamless_mode.SetChecked(seamless)
+}
+
+func (gui *GUI) SetHFlip(hflip bool) {
+	gui.Config.HFlip = hflip
+	gui.actionH_flip.SetChecked(hflip)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SetVFlip(vflip bool) {
+	gui.Config.VFlip = vflip
+	gui.actionV_flip.SetChecked(vflip)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SavePNG() {
+	if !gui.Loaded() {
+		return
+	}
+
+	base := filepath.Base(gui.State.ArchivePath)
+	if ext := filepath.Ext(base); len(ext) > 1 {
+		base = strings.TrimSuffix(base, ext)
+	}
+
+	pngBase := fmt.Sprintf("%s-%000d.png", base, gui.State.ArchivePos+1)
+	pngPath := filepath.Join(gui.State.ConfigPath, ImageDir, pngBase)
+	ok := gui.State.QImageL.Save(pngPath)
+	if !ok {
+		gui.ShowError("Failed to save image")
+		return
+	}
+
+	gui.SetStatus("Saved to " + pngBase)
+}
+
+func (gui *GUI) SetZoomMode(mode string) {
+	switch mode {
+	case "FitToWidth":
+		gui.actionFit_to_width.SetChecked(true)
+	case "FitToHeight":
+		gui.actionFit_to_height.SetChecked(true)
+	case "BestFit":
+		gui.actionBest_fit.SetChecked(true)
+	default:
+		return
+	}
+
+	gui.Config.ZoomMode = mode
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) setZoomLevel(level int) {
+	gui.Config.ZoomMode = "Manual"
+	gui.Config.ZoomLevel = level
+	for i, a := range gui.zoomLevelActions {
+		a.SetChecked(zoomLevels[i] == level)
+	}
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) zoomStep(dir int) {
+	// Step from the on-screen zoom (the manual level in Manual mode, the fit
+	// scale otherwise), so + lands on the nearest preset above and - on the
+	// nearest preset below where we currently are.
+	cur := int(math.Round(100 * gui.State.Scale))
+	n := -1
+	for j, l := range zoomLevels {
+		if dir > 0 && l > cur {
+			n = j
+			break
+		}
+		if dir < 0 && l < cur {
+			n = j
+		}
+	}
+	if n == -1 {
+		// No preset in that direction: clamp to the end of the list.
+		if dir > 0 {
+			n = len(zoomLevels) - 1
+		} else {
+			n = 0
+		}
+	}
+	gui.setZoomLevel(zoomLevels[n])
+}
+
+func (gui *GUI) setRotation(angle int) {
+	r := angle % 360
+	if r < 0 {
+		r += 360
+	}
+	gui.Config.Rotation = r
+	for i, a := range gui.rotationActions {
+		a.SetChecked(rotationLevels[i] == r)
+	}
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) Rotate(delta int) {
+	gui.setRotation(gui.Config.Rotation + delta)
+}
+
+func (gui *GUI) SetDoublePage(doublePage bool) {
+	gui.Config.DoublePage = doublePage
+	gui.actionDouble_page.SetChecked(doublePage)
+	gui.setPage(gui.State.ArchivePos)
+}
+
+func (gui *GUI) SetMangaMode(mangaMode bool) {
+	gui.Config.MangaMode = mangaMode
+	gui.actionManga_mode.SetChecked(mangaMode)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SetOneWide(oneWide bool) {
+	gui.Config.OneWide = oneWide
+	gui.PreferencesUI.OneWideCheckButton.SetChecked(oneWide)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+func (gui *GUI) SetSingleCover(singleCover bool) {
+	gui.Config.SingleCover = singleCover
+	gui.PreferencesUI.SingleCoverCheckButton.SetChecked(singleCover)
+	if gui.State.ArchivePos == 0 {
+		gui.setPage(0)
+	}
+}
+
+func (gui *GUI) SetSmartScroll(smartScroll bool) {
+	gui.Config.SmartScroll = smartScroll
+	gui.PreferencesUI.SmartScrollCheckButton.SetChecked(smartScroll)
+}
+
+func (gui *GUI) SetHideIdleCursor(hideIdleCursor bool) {
+	gui.Config.HideIdleCursor = hideIdleCursor
+	gui.PreferencesUI.HideIdleCursorCheckButton.SetChecked(hideIdleCursor)
+}
+
+func (gui *GUI) SetEmbeddedOrientation(embeddedOrientation bool) {
+	gui.Config.EmbeddedOrientation = embeddedOrientation
+	gui.PreferencesUI.EmbeddedOrientationCheckButton.SetChecked(embeddedOrientation)
+	gui.Blit()
+	gui.StatusImage()
+}
+
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile `file`")
+var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+
+// UpdateCursorVisibility checks if cursor should be hidden based on inactivity
 func (gui *GUI) UpdateCursorVisibility() bool {
 	cursorShouldBeHidden := false
 
@@ -208,252 +624,197 @@ func (gui *GUI) UpdateCursorVisibility() bool {
 	return true
 }
 
+func (gui *GUI) HideCursor() {
+	gui.Image.SetCursor(qt6.NewQCursor2(qt6.BlankCursor))
+	gui.State.CursorHidden = true
+}
+
+func (gui *GUI) ShowCursor() {
+	gui.Image.SetCursor(qt6.NewQCursor2(qt6.ArrowCursor))
+	gui.State.CursorHidden = false
+}
+
+// setCursorVisible toggles cursor visibility based on force-show state
+func (gui *GUI) setCursorVisible(visible bool) {
+	if visible {
+		gui.State.CursorForceShown = true
+		gui.ShowCursor()
+	} else {
+		gui.State.CursorForceShown = false
+		// Let UpdateCursorVisibility decide
+	}
+}
+
+// showCursorForDialog keeps cursor visible during dialog execution
+func (gui *GUI) showCursorForDialog(fn func()) {
+	gui.State.CursorForceShown = true
+	gui.ShowCursor()
+	fn()
+	gui.State.CursorForceShown = false
+	// UpdateCursorVisibility will restore normal behavior
+}
+
 func (gui *GUI) initUI() {
-	// Load UI
-	if err := gui.LoadWidgets(); err != nil {
-		log.Fatal(err)
-	}
+	// Load generated UI structures
+	gui.MainWindowUi = NewMainWindowUi()
+	gui.PreferencesUI = NewPreferencesDialogUi()
+	gui.GoToUI = NewGoToDialogUi()
+	gui.AboutUI = NewAboutDialogUi()
 
-	gui.AboutDialog.SetLogo(mustLoadPixbuf(about))
-	gui.MainWindow.SetIcon(mustLoadPixbuf(icon))
+	// Create and assign the graphics scene so Image.Scene() is non-nil.
+	scene := qt6.NewQGraphicsScene()
+	gui.Image.SetScene(scene)
 
+	// Pin the scene to the viewport origin instead of centering it against
+	// the view widget: when a scrollbar shrinks the paintable viewport below
+	// the widget, Qt's centering (against the widget rect) left a blank bar
+	// on the fit dimension. We do our own centering in Blit via offx/offy.
+	gui.Image.SetAlignment(qt6.AlignLeft | qt6.AlignTop)
+
+	// Drag-to-scroll: LMB press+move scrolls larger-than-view images.
+	gui.Image.SetDragMode(qt6.QGraphicsView__ScrollHandDrag)
+
+	// Go To dialog thumbnail view: assign its scene so .Scene() is non-nil
+	// (a fresh QGraphicsView has none; goToDialogLoadThumbnail clears it).
+	gui.GoToUI.GoToThumbnailImage.SetScene(qt6.NewQGraphicsScene())
+
+	// Same pinning as the main Image view so best-fit centering is applied
+	// exactly once (no widget-vs-viewport offset).
+	gui.GoToUI.GoToThumbnailImage.SetAlignment(qt6.AlignLeft | qt6.AlignTop)
+
+	// Re-fit to the available space when the view is resized (also fires on
+	// first show, once the dialog is laid out).
+	gui.GoToUI.GoToThumbnailImage.OnResizeEvent(func(super func(event *qt6.QResizeEvent), event *qt6.QResizeEvent) {
+		super(event)
+		gui.goToDialogLoadThumbnail()
+	})
+
+	// Keep spin and scrollbar in sync; the spin handler loads the thumbnail.
+	gui.GoToUI.GoToSpinButton.OnValueChanged(func(val int) {
+		gui.GoToUI.GoToScrollbar.SetValue(val)
+		gui.goToDialogLoadThumbnail()
+	})
+	gui.GoToUI.GoToScrollbar.OnValueChanged(func(val int) {
+		gui.GoToUI.GoToSpinButton.SetValue(val)
+	})
+
+	// Window icon on the main window and every dialog.
+	iconImg := mustLoadQImage(icon)
+	winIcon := qt6.NewQIcon2(qt6.QPixmap_FromImage(iconImg))
+	gui.MainWindow.SetWindowIcon(winIcon)
+	gui.PreferencesUI.PreferencesDialog.SetWindowIcon(winIcon)
+	gui.AboutUI.AboutDialog.SetWindowIcon(winIcon)
+	gui.GoToUI.Dialog.SetWindowIcon(winIcon)
+
+	// Status parts: one sunken cell per logical part of a status message,
+	// plus the stretch cell Set appends; a message with a different part
+	// count rebuilds the row (the four-part page status vs this single part).
+	gui.StatusParts = NewStatusParts(gui.statusbar, "No file loaded")
+
+	// About dialog logo: set the pixmap on the existing "image" QLabel.
+	aboutImg := mustLoadQImage(about)
+	gui.AboutUI.image.SetPixmap(qt6.QPixmap_FromImage(aboutImg))
+
+	// Version text: append to the existing "text" QLabel.
 	if len(gitVersion) >= 7 {
-		version := fmt.Sprintf("Version: git-%s (built: %s)\nCompiler version: %s", gitVersion[:7], buildDate, runtime.Version())
-		gui.AboutDialog.SetVersion(version)
+		version := fmt.Sprintf("Version: git-%s (built: %s), compiler: %s", gitVersion[:7], buildDate, runtime.Version())
+		gui.AboutUI.text.SetText(gui.AboutUI.text.Text() + "\n" + version)
 	}
 
-	gui.FileChooserDialogArchive.AddButton("_Open", gtk.RESPONSE_ACCEPT)
-	gui.FileChooserDialogArchive.AddButton("_Cancel", gtk.RESPONSE_CANCEL)
+	// Set up background color brush
+	gui.setupBackgroundColor()
 
-	gui.PreferencesDialog.AddButton("_OK", gtk.RESPONSE_ACCEPT)
+	// Setup viewport input handlers
+	gui.setupViewportInput()
 
-	gui.GoToDialog.AddButton("_Cancel", gtk.RESPONSE_CANCEL)
-	gui.GoToDialog.AddButton("_Go", gtk.RESPONSE_ACCEPT)
-	//gui.GoToDialog.SetDefaultResponse(gtk.RESPONSE_ACCEPT)
+	// Setup cursor auto-hide
+	gui.setupCursorAutoHide()
 
+	// Save config on any quit path (window close or menu Quit)
+	gui.MainWindow.OnCloseEvent(func(super func(event *qt6.QCloseEvent), event *qt6.QCloseEvent) {
+		super(event)
+		gui.saveConfig()
+	})
+
+	// Connect menu actions
+	gui.connectMenuActions()
+
+	// Set up checkable actions (uic does NOT emit SetCheckable)
+	gui.setupCheckableActions()
+
+	// Promote action shortcuts so they still fire in fullscreen mode
+	gui.setupActionShortcuts()
+
+	// Wire preferences dialog controls to config
+	gui.setupPreferencesDialog()
+
+	// Setup zoom action group (exclusive)
+	gui.setupZoomActionGroup()
+
+	// Sync UI state from config
 	gui.syncUI()
 
-	// Connect signals
-	gui.MenuItemAbout.Connect("activate", func() {
-		gui.State.CursorForceShown = true
-		gui.AboutDialog.Run()
-		gui.AboutDialog.Hide()
-		gui.State.CursorForceShown = false
-	})
+	// Rebuild bookmarks and recent files (runtime QActions)
+	gui.RebuildBookmarksMenu()
+	gui.menu_Recent_Files.QWidget.RemoveAction(gui.action_no_recent_items)
+	gui.buildRecentFilesMenu()
 
-	gui.MenuItemOpen.Connect("activate", func() {
-		res := gtk.ResponseType(gui.FileChooserDialogArchive.Run())
-		gui.FileChooserDialogArchive.Hide()
-		if res == gtk.RESPONSE_ACCEPT {
-			filename := gui.FileChooserDialogArchive.GetFilename()
-			gui.LoadArchive(filename)
-		}
-	})
+	// Set window size
+	gui.MainWindow.Resize(gui.Config.WindowWidth, gui.Config.WindowHeight)
 
-	gui.MenuItemSaveImage.Connect("activate", gui.SavePNG)
+	// Setup fullscreen state
+	gui.SetFullscreen(gui.Config.Fullscreen)
 
-	gui.MenuItemQuit.Connect("activate", gui.Quit)
-	gui.MenuItemClose.Connect("activate", gui.Close)
-	gui.MainWindow.Connect("delete-event", gui.Quit) // destroy
+	// Set zoom mode
+	gui.SetZoomMode(gui.Config.ZoomMode)
+	gui.SetDoublePage(gui.Config.DoublePage)
+	gui.SetMangaMode(gui.Config.MangaMode)
 
-	var oldW, oldH int
-	gui.MainWindow.Connect("size-allocate", func() {
-		// Avoid unnecessary redraws
-		w, h := gui.GetSize() // FIXME slow? use GdkRectangle *allocation passed in the signal
-		if w == oldW && h == oldH {
-			return
-		}
-		oldW, oldH = w, h
-		gui.ResizeEvent()
-	})
+	gui.MainWindow.Show()
+}
 
-	gui.ButtonNextPage.Connect("clicked", gui.NextPage)
-	gui.ButtonPreviousPage.Connect("clicked", gui.PreviousPage)
-	gui.ButtonFirstPage.Connect("clicked", gui.FirstPage)
-	gui.ButtonLastPage.Connect("clicked", gui.LastPage)
-	gui.ButtonNextArchive.Connect("clicked", gui.NextArchive)
-	gui.ButtonPreviousArchive.Connect("clicked", gui.PreviousArchive)
-	gui.ButtonNextScene.Connect("clicked", gui.NextScene)
-	gui.ButtonPreviousScene.Connect("clicked", gui.PreviousScene)
-	gui.ButtonSkipForward.Connect("clicked", gui.SkipForward)
-	gui.ButtonSkipBackward.Connect("clicked", gui.SkipBackward)
+func (gui *GUI) setupViewportInput() {
+	// Install handlers on the directly-constructed QGraphicsView. miqt only
+	// allows overriding virtual methods on types we constructed ourselves;
+	// Image.Viewport() returns an internally-created QWidget that is not
+	// overridable, so all event slots are wired on gui.Image instead.
+	vp := gui.Image
 
-	gui.MenuItemNextPage.Connect("activate", gui.NextPage)
-	gui.MenuItemPreviousPage.Connect("activate", gui.PreviousPage)
-	gui.MenuItemFirstPage.Connect("activate", gui.FirstPage)
-	gui.MenuItemLastPage.Connect("activate", gui.LastPage)
-	gui.MenuItemNextArchive.Connect("activate", gui.NextArchive)
-	gui.MenuItemPreviousArchive.Connect("activate", gui.PreviousArchive)
-	gui.MenuItemSkipForward.Connect("activate", gui.SkipForward)
-	gui.MenuItemSkipBackward.Connect("activate", gui.SkipBackward)
-
-	gui.MenuItemEnlarge.Connect("toggled", func() {
-		gui.SetEnlarge(gui.MenuItemEnlarge.GetActive())
-	})
-
-	gui.MenuItemShrink.Connect("toggled", func() {
-		gui.SetShrink(gui.MenuItemShrink.GetActive())
-	})
-
-	gui.MenuItemFullscreen.Connect("toggled", func() {
-		gui.SetFullscreen(gui.MenuItemFullscreen.GetActive())
-	})
-
-	gui.MenuItemSeamless.Connect("toggled", func() {
-		gui.SetSeamless(gui.MenuItemSeamless.GetActive())
-	})
-
-	gui.MenuItemRandom.Connect("toggled", func() {
-		gui.SetRandom(gui.MenuItemRandom.GetActive())
-	})
-
-	gui.MenuItemHFlip.Connect("toggled", func() {
-		gui.SetHFlip(gui.MenuItemHFlip.GetActive())
-	})
-
-	gui.MenuItemVFlip.Connect("toggled", func() {
-		gui.SetVFlip(gui.MenuItemVFlip.GetActive())
-	})
-
-	gui.MenuItemMangaMode.Connect("toggled", func() {
-		gui.SetMangaMode(gui.MenuItemMangaMode.GetActive())
-	})
-
-	gui.MenuItemDoublePage.Connect("toggled", func() {
-		gui.SetDoublePage(gui.MenuItemDoublePage.GetActive())
-	})
-
-	gui.MenuItemOriginal.Connect("toggled", func() {
-		if gui.MenuItemOriginal.GetActive() {
-			gui.SetZoomMode("Original")
-		}
-	})
-
-	gui.MenuItemBestFit.Connect("toggled", func() {
-		if gui.MenuItemBestFit.GetActive() {
-			gui.SetZoomMode("BestFit")
-		}
-	})
-
-	gui.MenuItemFitToWidth.Connect("toggled", func() {
-		if gui.MenuItemFitToWidth.GetActive() {
-			gui.SetZoomMode("FitToWidth")
-		}
-	})
-
-	gui.MenuItemFitToHeight.Connect("toggled", func() {
-		if gui.MenuItemFitToHeight.GetActive() {
-			gui.SetZoomMode("FitToHeight")
-		}
-	})
-
-	gui.MenuItemPreferences.Connect("activate", func() {
-		gui.State.CursorForceShown = true
-		res := gtk.ResponseType(gui.PreferencesDialog.Run())
-		gui.PreferencesDialog.Hide()
-		if res == gtk.RESPONSE_ACCEPT {
-			// TODO save config
-		}
-		gui.State.CursorForceShown = false
-	})
-
-	gui.MenuItemGoTo.Connect("activate", func() {
-		gui.RunGoToDialog()
-	})
-
-	gui.GoToSpinButton.Connect("value-changed", func() {
-		gui.GoToScrollbar.SetValue(gui.GoToSpinButton.GetValue())
-		// TODO load & display the thumbnail image
-	})
-
-	gui.GoToScrollbar.Connect("value-changed", func() {
-		gui.GoToSpinButton.SetValue(gui.GoToScrollbar.GetValue())
-		gui.goToDialogLoadSetThumbnail()
-		// load & display the thumbnail image
-	})
-
-	gui.RecentChooserMenu.Connect("item-activated", func() {
-		uri := gui.RecentChooserMenu.GetCurrentUri()
-		u, err := url.Parse(uri)
-		if err != nil {
-			gui.ShowError(err.Error())
-			return
-		}
-		gui.LoadArchive(u.Path)
-	})
-
-	gui.PagesToSkipSpinButton.SetRange(1, 100)
-	gui.PagesToSkipSpinButton.SetIncrements(1, 10)
-	gui.PagesToSkipSpinButton.SetValue(float64(gui.Config.NSkip))
-
-	gui.PagesToSkipSpinButton.Connect("value-changed", func() {
-		gui.Config.NSkip = int(gui.PagesToSkipSpinButton.GetValue())
-		gui.goToDialogLoadSetThumbnail()
-	})
-
-	gui.InterpolationComboBoxText.Connect("changed", func() {
-		gui.SetInterpolation(gui.InterpolationComboBoxText.GetActive())
-	})
-
-	gui.OneWideCheckButton.Connect("toggled", func() {
-		gui.SetOneWide(gui.OneWideCheckButton.GetActive())
-	})
-
-	gui.SmartScrollCheckButton.Connect("toggled", func() {
-		gui.SetSmartScroll(gui.SmartScrollCheckButton.GetActive())
-	})
-
-	gui.EmbeddedOrientationCheckButton.Connect("toggled", func() {
-		gui.SetEmbeddedOrientation(gui.EmbeddedOrientationCheckButton.GetActive())
-	})
-
-	gui.HideIdleCursorCheckButton.Connect("toggled", func() {
-		gui.SetHideIdleCursor(gui.HideIdleCursorCheckButton.GetActive())
-
-	})
-
-	gui.AddBookmarkMenuItem.Connect("activate", func() {
-		gui.AddBookmark()
-	})
-
-	gui.ScrolledWindow.SetEvents(gui.ScrolledWindow.GetEvents() | int(gdk.BUTTON_PRESS_MASK))
-
-	gui.ScrolledWindow.Connect("scroll-event", func(w *gtk.ScrolledWindow, e *gdk.Event) {
-		se := &gdk.EventScroll{Event: e}
-
-		gui.Scroll(se.DeltaX(), se.DeltaY())
-	})
-
-	// FIXME
-	gui.ScrolledWindow.Connect("button-press-event", func(_ *gtk.ScrolledWindow, e *gdk.Event) bool {
-		//log.Println(w)
-		be := &gdk.EventButton{Event: e}
-		switch be.Button() {
-		case 1:
-			gui.NextPage()
-		case 3:
-			gui.PreviousPage()
-		case 2:
+	// Mouse press: middle=next-archive; LMB is handled by Qt (ScrollHandDrag).
+	vp.OnMousePressEvent(func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {
+		gui.State.CursorLastMoved = time.Now()
+		switch event.Button() {
+		case qt6.LeftButton:
+			super(event)
+		case qt6.MiddleButton:
 			gui.NextArchive()
 		}
-		return true
 	})
 
-	gui.MainWindow.Connect("motion-notify-event", func(_ *gtk.Window, _ *gdk.Event) bool {
+	// Wheel: up=prev page, down=next page; Ctrl+wheel zooms in/out.
+	vp.OnWheelEvent(func(_ func(event *qt6.QWheelEvent), event *qt6.QWheelEvent) {
 		gui.State.CursorLastMoved = time.Now()
-		return true
+		ctrl := qt6.QGuiApplication_QueryKeyboardModifiers()&qt6.ControlModifier != 0
+		if ctrl {
+			if event.AngleDelta().Y() > 0 {
+				gui.zoomStep(1)
+			} else {
+				gui.zoomStep(-1)
+			}
+		} else if event.AngleDelta().Y() > 0 {
+			gui.PreviousPage()
+		} else {
+			gui.NextPage()
+		}
 	})
 
-	glib.TimeoutAdd(250, gui.UpdateCursorVisibility)
+	// Key press
+	vp.OnKeyPressEvent(func(_ func(event *qt6.QKeyEvent), event *qt6.QKeyEvent) {
+		shift := event.Modifiers()&qt6.ShiftModifier != 0
+		ctrl := event.Modifiers()&qt6.ControlModifier != 0
 
-	gui.MainWindow.Connect("key-press-event", func(_ *gtk.Window, e *gdk.Event) {
-		ke := &gdk.EventKey{Event: e}
-
-		shift := ke.State()&uint(gdk.SHIFT_MASK) != 0
-		ctrl := ke.State()&uint(gdk.CONTROL_MASK) != 0
-
-		switch ke.KeyVal() {
-		case gdk.KEY_Down:
+		switch key := qt6.Key(event.Key()); key {
+		case qt6.Key_Down:
 			if ctrl {
 				gui.NextArchive()
 			} else if shift {
@@ -461,7 +822,7 @@ func (gui *GUI) initUI() {
 			} else {
 				gui.NextPage()
 			}
-		case gdk.KEY_Up:
+		case qt6.Key_Up:
 			if ctrl {
 				gui.PreviousArchive()
 			} else if shift {
@@ -469,7 +830,7 @@ func (gui *GUI) initUI() {
 			} else {
 				gui.PreviousPage()
 			}
-		case gdk.KEY_Right:
+		case qt6.Key_Right:
 			if ctrl {
 				gui.NextScene()
 			} else if shift {
@@ -477,7 +838,7 @@ func (gui *GUI) initUI() {
 			} else {
 				gui.SkipForward()
 			}
-		case gdk.KEY_Left:
+		case qt6.Key_Left:
 			if ctrl {
 				gui.PreviousScene()
 			} else if shift {
@@ -485,136 +846,436 @@ func (gui *GUI) initUI() {
 			} else {
 				gui.SkipBackward()
 			}
+		case qt6.Key_R:
+			if !ctrl {
+				if shift {
+					gui.Rotate(-90)
+				} else {
+					gui.Rotate(90)
+				}
+			}
+		case qt6.Key_Plus:
+			gui.zoomStep(1)
+		case qt6.Key_Minus:
+			gui.zoomStep(-1)
+		case qt6.Key_Asterisk:
+			gui.setZoomLevel(100)
+		case qt6.Key_Slash:
+			gui.SetZoomMode("BestFit")
+		case qt6.Key_Space:
+			gui.NextPage()
 		}
 	})
 
-	gui.UseBackgroundColorCheckButton.Connect("toggled", func() {
-		gui.Config.UseBackgroundColor = gui.UseBackgroundColorCheckButton.GetActive()
-		gui.SetBackgroundColor(gui.Config.BackgroundColor)
+	// Mouse move: forward to C++ base (ScrollHandDrag needs it) + cursor tracking
+	vp.OnMouseMoveEvent(func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {
+		super(event)
+		gui.State.CursorLastMoved = time.Now()
 	})
 
-	gui.BackgroundColorButton.Connect("color-set", func(o *glib.Object) {
-		c := &gtk.ColorChooser{
-			Object: o,
+	// Resize: relayout so the image stays centered and correctly sized
+	vp.OnResizeEvent(func(super func(event *qt6.QResizeEvent), event *qt6.QResizeEvent) {
+		super(event)
+		gui.ResizeEvent()
+	})
+
+	// Enter/leave for cursor
+	vp.OnEnterEvent(func(_ func(event *qt6.QEnterEvent), event *qt6.QEnterEvent) {
+		if gui.State.CursorHidden {
+			gui.State.CursorForceShown = true
 		}
-		color := c.GetRGBA()
-		gui.SetBackgroundColor(color.String())
+	})
+	vp.OnLeaveEvent(func(_ func(event *qt6.QEvent), event *qt6.QEvent) {
+		gui.State.CursorForceShown = false
+	})
+}
+
+func (gui *GUI) setupCursorAutoHide() {
+	// Timer for cursor visibility
+	timer := qt6.NewQTimer()
+	timer.SetInterval(250)
+	timer.OnTimeout(func() {
+		gui.UpdateCursorVisibility()
+	})
+	timer.Start(250)
+}
+
+func (gui *GUI) setupPreferencesDialog() {
+	p := gui.PreferencesUI
+
+	p.OneWideCheckButton.OnToggled(func(checked bool) {
+		gui.SetOneWide(checked)
+	})
+	p.SingleCoverCheckButton.OnToggled(func(checked bool) {
+		gui.SetSingleCover(checked)
+	})
+	p.SmartScrollCheckButton.OnToggled(func(checked bool) {
+		gui.SetSmartScroll(checked)
+	})
+	p.HideIdleCursorCheckButton.OnToggled(func(checked bool) {
+		gui.SetHideIdleCursor(checked)
+	})
+	p.EmbeddedOrientationCheckButton.OnToggled(func(checked bool) {
+		gui.SetEmbeddedOrientation(checked)
+	})
+	p.UseBackgroundColorCheckButton.OnToggled(func(checked bool) {
+		gui.Config.UseBackgroundColor = checked
+		gui.setupBackgroundColor()
+	})
+	p.PagesToSkipSpinButton.SetRange(1, 100)
+	p.PagesToSkipSpinButton.OnValueChanged(func(v int) {
+		gui.Config.NSkip = v
+	})
+	p.InterpolationComboBoxText.OnCurrentIndexChanged(func(index int) {
+		gui.Config.Interpolation = index
+	})
+	p.BackgroundColorButton.OnClicked(func() {
+		var init *qt6.QColor
+		if gui.Config.UseBackgroundColor {
+			c := qt6.NewQColor()
+			c.SetNamedColor(gui.Config.BackgroundColor)
+			init = c
+		} else {
+			init = qt6.NewQColor2(qt6.DarkGray)
+		}
+		dlg := qt6.NewQColorDialog4(init, p.PreferencesDialog.QWidget)
+		if res := dlg.Exec(); res == int(qt6.QDialog__Accepted) {
+			gui.Config.UseBackgroundColor = true
+			gui.Config.BackgroundColor = dlg.CurrentColor().Name()
+			gui.setupBackgroundColor()
+		}
+	})
+}
+
+func (gui *GUI) connectMenuActions() {
+	// File
+	gui.actionOpen.OnTriggered(func() {
+		gui.openArchive()
+	})
+	gui.actionClose.OnTriggered(func() {
+		gui.Close()
+	})
+	gui.actionSave_Image.OnTriggered(func() {
+		gui.SavePNG()
+	})
+	gui.action_Quit.OnTriggered(func() {
+		gui.Quit()
 	})
 
-	gui.RebuildBookmarksMenu()
+	// Edit
+	gui.action_Preferences.OnTriggered(func() {
+		gui.showPreferences()
+	})
 
-	gui.MainWindow.SetDefaultSize(gui.Config.WindowWidth, gui.Config.WindowHeight)
-	gui.MainWindow.ShowAll()
+	// Navigation
+	gui.actionFirst_page.OnTriggered(gui.FirstPage)
+	gui.actionLast_page.OnTriggered(gui.LastPage)
+	gui.actionPrevious_page.OnTriggered(gui.PreviousPage)
+	gui.actionNext_page.OnTriggered(gui.NextPage)
+	gui.actionSkip_forward.OnTriggered(gui.SkipForward)
+	gui.actionSkip_backward.OnTriggered(gui.SkipBackward)
+	gui.actionPrevious_archive.OnTriggered(func() {
+		gui.PreviousArchive()
+	})
+	gui.actionNext_archive.OnTriggered(func() {
+		gui.NextArchive()
+	})
+	gui.actionPrevious_Scene.OnTriggered(gui.PreviousScene)
+	gui.actionNext_scene.OnTriggered(gui.NextScene)
+	gui.actionGo_to_page.OnTriggered(func() {
+		gui.RunGoToDialog()
+	})
 
-	// Tiny hack
-	mw, mh := gui.MainWindow.GetSize()
-	va := gui.Viewport.GetAllocation()
-	gui.State.DeltaW, gui.State.DeltaH = mw-va.GetWidth(), mh-va.GetHeight()
+	// View
+	gui.actionBest_fit.OnTriggered(func() {
+		gui.SetZoomMode("BestFit")
+	})
+	gui.actionZoom_25.OnTriggered(func() { gui.setZoomLevel(25) })
+	gui.actionZoom_33.OnTriggered(func() { gui.setZoomLevel(33) })
+	gui.actionZoom_50.OnTriggered(func() { gui.setZoomLevel(50) })
+	gui.actionZoom_66.OnTriggered(func() { gui.setZoomLevel(66) })
+	gui.actionZoom_75.OnTriggered(func() { gui.setZoomLevel(75) })
+	gui.actionZoom_100.OnTriggered(func() { gui.setZoomLevel(100) })
+	gui.actionZoom_125.OnTriggered(func() { gui.setZoomLevel(125) })
+	gui.actionZoom_150.OnTriggered(func() { gui.setZoomLevel(150) })
+	gui.actionZoom_200.OnTriggered(func() { gui.setZoomLevel(200) })
+	gui.actionZoom_300.OnTriggered(func() { gui.setZoomLevel(300) })
+	gui.actionZoom_400.OnTriggered(func() { gui.setZoomLevel(400) })
+	gui.actionZoom_800.OnTriggered(func() { gui.setZoomLevel(800) })
+	gui.actionFit_to_width.OnTriggered(func() {
+		gui.SetZoomMode("FitToWidth")
+	})
+	gui.actionFit_to_height.OnTriggered(func() {
+		gui.SetZoomMode("FitToHeight")
+	})
+	gui.actionRotate_0.OnTriggered(func() { gui.setRotation(0) })
+	gui.actionRotate_90.OnTriggered(func() { gui.setRotation(90) })
+	gui.actionRotate_180.OnTriggered(func() { gui.setRotation(180) })
+	gui.actionRotate_270.OnTriggered(func() { gui.setRotation(270) })
+	gui.actionFullscreen.OnTriggered(func() {
+		gui.SetFullscreen(!gui.Config.Fullscreen)
+	})
+	gui.actionSeamless_mode.OnTriggered(func() {
+		gui.SetSeamless(!gui.Config.Seamless)
+	})
+	gui.actionRandom_ordering.OnTriggered(func() {
+		gui.SetRandom(!gui.Config.Random)
+	})
+	gui.actionManga_mode.OnTriggered(func() {
+		gui.SetMangaMode(!gui.Config.MangaMode)
+	})
+	gui.actionDouble_page.OnTriggered(func() {
+		gui.SetDoublePage(!gui.Config.DoublePage)
+	})
+	gui.actionH_flip.OnTriggered(func() {
+		gui.SetHFlip(!gui.Config.HFlip)
+	})
+	gui.actionV_flip.OnTriggered(func() {
+		gui.SetVFlip(!gui.Config.VFlip)
+	})
+	gui.actionShrink_large_images.OnTriggered(func() {
+		gui.SetShrink(!gui.Config.Shrink)
+	})
+	gui.actionEnlarge_small_images.OnTriggered(func() {
+		gui.SetEnlarge(!gui.Config.Enlarge)
+	})
 
-	gui.SetFullscreen(gui.Config.Fullscreen)
+	// Help
+	gui.actionAbout.OnTriggered(func() {
+		gui.showAbout()
+	})
 
-	gui.SetZoomMode(gui.Config.ZoomMode)
-	gui.SetDoublePage(gui.Config.DoublePage)
-	gui.SetMangaMode(gui.Config.MangaMode)
-	if gui.Config.UseBackgroundColor {
-		gui.SetBackgroundColor(gui.Config.BackgroundColor)
-	}
-
-	gui.fixFocus()
-
+	// Bookmarks
+	gui.actionAdd_bookmark.OnTriggered(func() {
+		gui.AddBookmark()
+	})
 }
 
-func (gui *GUI) SetBackgroundColor(color string) {
-	gdkColor := gdk.NewRGBA()
-	if ok := gdkColor.Parse(color); !ok {
-		return
+func (gui *GUI) setupCheckableActions() {
+	actions := []struct {
+		*qt6.QAction
+		bool
+	}{
+		{gui.actionBest_fit, true},
+		{gui.actionZoom_25, true},
+		{gui.actionZoom_33, true},
+		{gui.actionZoom_50, true},
+		{gui.actionZoom_66, true},
+		{gui.actionZoom_75, true},
+		{gui.actionZoom_100, true},
+		{gui.actionZoom_125, true},
+		{gui.actionZoom_150, true},
+		{gui.actionZoom_200, true},
+		{gui.actionZoom_300, true},
+		{gui.actionZoom_400, true},
+		{gui.actionZoom_800, true},
+		{gui.actionRotate_0, true},
+		{gui.actionRotate_90, true},
+		{gui.actionRotate_180, true},
+		{gui.actionRotate_270, true},
+		{gui.actionFit_to_width, true},
+		{gui.actionFit_to_height, true},
+		{gui.actionFullscreen, true},
+		{gui.actionSeamless_mode, true},
+		{gui.actionRandom_ordering, true},
+		{gui.actionManga_mode, true},
+		{gui.actionDouble_page, true},
+		{gui.actionH_flip, true},
+		{gui.actionV_flip, true},
+		{gui.actionShrink_large_images, true},
+		{gui.actionEnlarge_small_images, true},
 	}
-
-	ctx, err := gui.ScrolledWindow.GetStyleContext()
-	if err != nil {
-		gui.ShowError(err.Error())
-		return
+	for _, a := range actions {
+		a.QAction.SetCheckable(true)
 	}
-
-	provider, err := gtk.CssProviderNew()
-	if err != nil {
-		gui.ShowError(err.Error())
-		return
-	}
-
-	if gui.State.BackgroundStyleProvider != nil {
-		ctx.RemoveProvider(gui.State.BackgroundStyleProvider)
-	}
-
-	if gui.Config.UseBackgroundColor == false {
-		return
-	}
-
-	css := fmt.Sprintf("scrolledwindow { background-color: %s; }", color)
-	if err = provider.LoadFromData(css); err != nil {
-		gui.ShowError(err.Error())
-		return
-	}
-	ctx.AddProvider(provider, 800)
-
-	gui.State.BackgroundStyleProvider = provider
-	gui.Config.BackgroundColor = color
 }
 
-func (gui *GUI) goToDialogLoadSetThumbnail() {
-	n := int(gui.GoToSpinButton.GetValue() - 1)
-	pixbuf, err := gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation)
-	if err != nil {
-		gui.ShowError(err.Error())
+func (gui *GUI) setupActionShortcuts() {
+	// Menu/toolbar actions default to Qt::WidgetShortcut, which is scoped to the
+	// menubar; when it's hidden in fullscreen mode those shortcuts go inactive.
+	// Promote every action to a window-wide shortcut so they still fire there.
+	actions := []*qt6.QAction{
+		gui.actionOpen, gui.actionClose, gui.actionSave_Image, gui.action_Quit,
+		gui.action_Preferences,
+		gui.actionShrink_large_images, gui.actionEnlarge_small_images,
+		gui.actionBest_fit, gui.actionFit_to_width,
+		gui.actionFit_to_height, gui.actionFullscreen, gui.actionRandom_ordering,
+		gui.actionV_flip, gui.actionH_flip, gui.actionManga_mode, gui.actionDouble_page,
+		gui.actionPrevious_page, gui.actionNext_page, gui.actionFirst_page,
+		gui.actionLast_page, gui.actionGo_to_page, gui.actionAdd_bookmark, gui.actionAbout,
+	}
+	for _, a := range actions {
+		a.SetShortcutContext(qt6.WindowShortcut)
+		gui.MainWindow.AddAction(a)
+	}
+}
+
+func (gui *GUI) setupZoomActionGroup() {
+	// One exclusive group spans every zoom choice (the three fit modes plus
+	// the manual levels), so exactly one is checked at a time. Rotation has
+	// its own exclusive group of the four angles.
+	group := qt6.NewQActionGroup(gui.MainWindow.QWidget.QObject)
+	group.AddAction(gui.actionBest_fit)
+	group.AddAction(gui.actionFit_to_width)
+	group.AddAction(gui.actionFit_to_height)
+
+	gui.zoomLevelActions = []*qt6.QAction{
+		gui.actionZoom_25, gui.actionZoom_33, gui.actionZoom_50,
+		gui.actionZoom_66, gui.actionZoom_75, gui.actionZoom_100,
+		gui.actionZoom_125, gui.actionZoom_150, gui.actionZoom_200,
+		gui.actionZoom_300, gui.actionZoom_400, gui.actionZoom_800,
+	}
+	for _, a := range gui.zoomLevelActions {
+		group.AddAction(a)
+	}
+
+	rGroup := qt6.NewQActionGroup(gui.MainWindow.QWidget.QObject)
+	gui.rotationActions = []*qt6.QAction{
+		gui.actionRotate_0, gui.actionRotate_90,
+		gui.actionRotate_180, gui.actionRotate_270,
+	}
+	for _, a := range gui.rotationActions {
+		rGroup.AddAction(a)
+	}
+}
+
+func (gui *GUI) updateRecentFiles(path string) {
+	recent := gui.Config.Recent
+	for i, r := range recent {
+		if r == path {
+			recent = append(recent[:i], recent[i+1:]...)
+			break
+		}
+	}
+	recent = append([]string{path}, recent...)
+	if len(recent) > MaxRecent {
+		recent = recent[:MaxRecent]
+	}
+	gui.Config.Recent = recent
+	gui.buildRecentFilesMenu()
+}
+
+func (gui *GUI) buildRecentFilesMenu() {
+	for i := range recentFileActions {
+		recentFileActions[i].Delete()
+	}
+	recentFileActions = nil
+
+	if len(gui.Config.Recent) == 0 {
+		gui.menu_Recent_Files.QWidget.AddAction(gui.action_no_recent_items)
 		return
 	}
 
-	w, h := fit(pixbuf.GetWidth(), pixbuf.GetHeight(), ThumbnailSize, ThumbnailSize)
+	gui.menu_Recent_Files.QWidget.RemoveAction(gui.action_no_recent_items)
 
-	scaled, err := pixbuf.ScaleSimple(w, h, interpolations[gui.Config.Interpolation])
-	if err != nil {
-		gui.ShowError(err.Error())
-		return
+	for _, path := range gui.Config.Recent {
+		a := qt6.NewQAction()
+		a.SetText(path)
+		p := path
+		a.OnTriggered(func() {
+			gui.LoadArchive(p, false)
+		})
+		recentFileActions = append(recentFileActions, a)
+		gui.menu_Recent_Files.QWidget.AddAction(a)
 	}
-
-	gui.State.GoToThumnailPixbuf = scaled
-	gui.GoToThumbnailImage.SetFromPixbuf(scaled)
-
-	gc()
 }
 
 func (gui *GUI) syncUI() {
-	// Sync config & UI
-	gui.MenuItemEnlarge.SetActive(gui.Config.Enlarge)
-	gui.MenuItemShrink.SetActive(gui.Config.Shrink)
-	gui.MenuItemHFlip.SetActive(gui.Config.HFlip)
-	gui.MenuItemVFlip.SetActive(gui.Config.VFlip)
-	gui.MenuItemRandom.SetActive(gui.Config.Random)
-	gui.MenuItemSeamless.SetActive(gui.Config.Seamless)
-	gui.MenuItemDoublePage.SetActive(gui.Config.DoublePage)
-	gui.MenuItemMangaMode.SetActive(gui.Config.MangaMode)
-	gui.UseBackgroundColorCheckButton.SetActive(gui.Config.UseBackgroundColor)
+	// Sync config with UI
+	gui.actionEnlarge_small_images.SetChecked(gui.Config.Enlarge)
+	gui.actionShrink_large_images.SetChecked(gui.Config.Shrink)
+	gui.actionH_flip.SetChecked(gui.Config.HFlip)
+	gui.actionV_flip.SetChecked(gui.Config.VFlip)
+	gui.actionRandom_ordering.SetChecked(gui.Config.Random)
+	gui.actionSeamless_mode.SetChecked(gui.Config.Seamless)
+	gui.actionDouble_page.SetChecked(gui.Config.DoublePage)
+	gui.actionManga_mode.SetChecked(gui.Config.MangaMode)
+	gui.PreferencesUI.OneWideCheckButton.SetChecked(gui.Config.OneWide)
+	gui.PreferencesUI.SingleCoverCheckButton.SetChecked(gui.Config.SingleCover)
+	gui.PreferencesUI.SmartScrollCheckButton.SetChecked(gui.Config.SmartScroll)
+	gui.PreferencesUI.EmbeddedOrientationCheckButton.SetChecked(gui.Config.EmbeddedOrientation)
+	gui.PreferencesUI.HideIdleCursorCheckButton.SetChecked(gui.Config.HideIdleCursor)
+	gui.PreferencesUI.UseBackgroundColorCheckButton.SetChecked(gui.Config.UseBackgroundColor)
+	gui.PreferencesUI.PagesToSkipSpinButton.SetValue(gui.Config.NSkip)
+	gui.PreferencesUI.InterpolationComboBoxText.SetCurrentIndex(gui.Config.Interpolation)
 
-	gdkBackgroundColor := gdk.NewRGBA()
-	if ok := gdkBackgroundColor.Parse(gui.Config.BackgroundColor); ok {
-		gui.BackgroundColorButton.SetRGBA(gdkBackgroundColor)
-	}
-
+	// Set zoom mode action checked state
 	switch gui.Config.ZoomMode {
 	case "FitToWidth":
-		gui.MenuItemFitToWidth.SetActive(true)
+		gui.actionFit_to_width.SetChecked(true)
 	case "FitToHeight":
-		gui.MenuItemFitToHeight.SetActive(true)
+		gui.actionFit_to_height.SetChecked(true)
 	case "BestFit":
-		gui.MenuItemBestFit.SetActive(true)
-	default:
-		gui.MenuItemOriginal.SetActive(true)
+		gui.actionBest_fit.SetChecked(true)
+	default: // Manual
+		for i, a := range gui.zoomLevelActions {
+			a.SetChecked(zoomLevels[i] == gui.Config.ZoomLevel)
+		}
 	}
 
-	gui.InterpolationComboBoxText.SetActive(gui.Config.Interpolation)
-	gui.OneWideCheckButton.SetActive(gui.Config.OneWide)
-	gui.EmbeddedOrientationCheckButton.SetActive(gui.Config.EmbeddedOrientation)
-	gui.HideIdleCursorCheckButton.SetActive(gui.Config.HideIdleCursor)
+	// Set rotation angle checked state
+	for i, a := range gui.rotationActions {
+		a.SetChecked(rotationLevels[i] == gui.Config.Rotation)
+	}
+
+	// Set go-to spin button range
+	gui.GoToUI.GoToSpinButton.SetRange(1, 1)
+	gui.GoToUI.GoToScrollbar.SetRange(1, 1)
+}
+
+func (gui *GUI) setupBackgroundColor() {
+	c := qt6.NewQColor()
+	c.SetNamedColor(gui.Config.BackgroundColor)
+	brush := qt6.NewQBrush3(c)
+	gui.PreferencesUI.BackgroundColorButton.SetStyleSheet("background-color: " + c.Name() + ";")
+
+	if gui.Config.UseBackgroundColor {
+		gui.Image.Scene().SetBackgroundBrush(brush)
+	} else {
+		// Default dark background
+		brush := qt6.NewQBrush()
+		gui.Image.Scene().SetBackgroundBrush(brush)
+	}
+	// Mirror the background on the color button so it shows the current pick.
+}
+
+func (gui *GUI) openArchive() {
+	imgGlobs := make([]string, len(archive.ImageExtensions))
+	for i, e := range archive.ImageExtensions {
+		imgGlobs[i] = "*" + e
+	}
+	sort.Strings(imgGlobs)
+
+	arcGlobs := make([]string, len(archive.ArchiveExtensions))
+	for i, e := range archive.ArchiveExtensions {
+		arcGlobs[i] = "*" + e
+	}
+	sort.Strings(arcGlobs)
+
+	allGlobs := append([]string{}, imgGlobs...)
+	allGlobs = append(allGlobs, arcGlobs...)
+
+	filter := fmt.Sprintf("All supported (%s);;Images (%s);;Archives (%s);;All Files (*)",
+		strings.Join(allGlobs, " "), strings.Join(imgGlobs, " "), strings.Join(arcGlobs, " "))
+
+	res := qt6.QFileDialog_GetOpenFileName4(gui.MainWindow.QWidget, "Open Archive", gui.Config.LastDirectory, filter)
+	if res == "" {
+		return
+	}
+	gui.Config.LastDirectory = filepath.Dir(res)
+	gui.LoadArchive(res, true)
+}
+
+func (gui *GUI) showPreferences() {
+	gui.showCursorForDialog(func() {
+		gui.PreferencesUI.PreferencesDialog.Exec()
+	})
+}
+
+func (gui *GUI) showAbout() {
+	gui.showCursorForDialog(func() {
+		gui.AboutUI.AboutDialog.Exec()
+	})
 }
 
 func (gui *GUI) RunGoToDialog() {
@@ -622,23 +1283,104 @@ func (gui *GUI) RunGoToDialog() {
 		return
 	}
 
-	gui.GoToSpinButton.SetRange(1, float64(gui.State.Archive.Len()))
-	gui.GoToSpinButton.SetValue(float64(gui.State.ArchivePos) + 1)
-	gui.GoToSpinButton.SetIncrements(1, float64(gui.Config.NSkip))
+	gui.GoToUI.GoToSpinButton.SetRange(1, gui.State.Archive.Len())
+	gui.GoToUI.GoToSpinButton.SetValue(int(gui.State.ArchivePos + 1))
+	gui.GoToUI.GoToScrollbar.SetRange(1, gui.State.Archive.Len())
 
-	gui.GoToScrollbar.SetRange(1, float64(gui.State.Archive.Len()))
-	gui.GoToScrollbar.SetValue(float64(gui.State.ArchivePos) + 1)
-	gui.GoToScrollbar.SetIncrements(1, float64(gui.State.Archive.Len()))
+	gui.goToDialogLoadThumbnail()
 
-	gui.goToDialogLoadSetThumbnail()
+	res := gui.GoToUI.Dialog.Exec()
+	if res == int(qt6.QDialog__Accepted) {
+		gui.SetPage(int(gui.GoToUI.GoToSpinButton.Value()) - 1)
+	}
+}
 
-	res := gtk.ResponseType(gui.GoToDialog.Run())
-	gui.GoToDialog.Hide()
-	if res == gtk.RESPONSE_ACCEPT {
-		gui.SetPage(int(gui.GoToSpinButton.GetValue()) - 1)
+func (gui *GUI) goToDialogLoadThumbnail() {
+	if !gui.Loaded() {
+		return
+	}
 
-		gui.GoToThumbnailImage.Clear()
-		gui.State.GoToThumnailPixbuf = nil
-		gc()
+	n := gui.GoToUI.GoToSpinButton.Value() - 1
+
+	img, err := gui.State.Archive.Load(int(n), gui.Config.EmbeddedOrientation)
+	if err != nil {
+		gui.ShowError(err.Error())
+		return
+	}
+
+	thumbScene := gui.GoToUI.GoToThumbnailImage.Scene()
+	thumbScene.Clear()
+
+	// Fit to the full available space in the view (best fit). Before the
+	// dialog is laid out the geometry isn't ready, so fall back to a fixed
+	// size; the resize handler re-fits once it's shown.
+	vw, vh := gui.GoToUI.GoToThumbnailImage.Viewport().Geometry().Width(), gui.GoToUI.GoToThumbnailImage.Viewport().Geometry().Height()
+	fw, fh := vw, vh
+	if fw <= 0 || fh <= 0 {
+		fw, fh = ThumbnailSize, ThumbnailSize
+	}
+
+	w, h := img.Width(), img.Height()
+	scaledW, scaledH := fit(w, h, fw, fh)
+	if scaledW == 0 || scaledH == 0 {
+		return
+	}
+	scaled := img.Scaled(scaledW, scaledH)
+
+	pix := qt6.QPixmap_FromImage(scaled)
+	item := thumbScene.AddPixmap(pix)
+
+	// Center the item when it fits a dimension (offx/offy), and keep the
+	// scene rect >= the viewport so QGraphicsView never re-centers it.
+	offx, offy := max(0, (vw-scaledW)/2), max(0, (vh-scaledH)/2)
+	item.SetPos2(float64(offx), float64(offy))
+	sceneW, sceneH := max(scaledW, vw), max(scaledH, vh)
+	gui.GoToUI.GoToThumbnailImage.SetSceneRect2(0, 0, float64(sceneW), float64(sceneH))
+}
+
+// Bookmark action management
+
+func (gui *GUI) AddBookmark() {
+	defer gui.RebuildBookmarksMenu()
+
+	for i := range gui.Config.Bookmarks {
+		b := &gui.Config.Bookmarks[i]
+		if b.Path == gui.State.ArchivePath {
+			b.Page = uint(gui.State.ArchivePos + 1)
+			b.TotalPages = uint(gui.State.Archive.Len())
+			b.Added = time.Now()
+			return
+		}
+	}
+
+	gui.Config.Bookmarks = append(gui.Config.Bookmarks, Bookmark{
+		Path:       gui.State.ArchivePath,
+		TotalPages: uint(gui.State.Archive.Len()),
+		Page:       uint(gui.State.ArchivePos + 1),
+		Added:      time.Now(),
+	})
+}
+
+func (gui *GUI) RebuildBookmarksMenu() {
+	for i := range bookmarkActionsList {
+		bookmarkActionsList[i].Delete()
+	}
+	bookmarkActionsList = nil
+
+	for i := range gui.Config.Bookmarks {
+		bookmark := &gui.Config.Bookmarks[i]
+		base := filepath.Base(bookmark.Path)
+		label := fmt.Sprintf("%s (%d/%d)", base, bookmark.Page, bookmark.TotalPages)
+
+		a := qt6.NewQAction()
+		a.SetText(label)
+		a.OnTriggered(func() {
+			if gui.State.ArchivePath != bookmark.Path {
+				gui.LoadArchive(bookmark.Path, false)
+			}
+			gui.SetPage(int(bookmark.Page) - 1)
+		})
+		bookmarkActionsList = append(bookmarkActionsList, a)
+		gui.menuBookmarks.QWidget.AddAction(a)
 	}
 }

@@ -17,7 +17,7 @@ package main
 
 import (
 	"errors"
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/mappu/miqt/qt6"
 	"github.com/salviati/gomics/archive"
 	"github.com/salviati/gomics/imgdiff"
 	"math/rand"
@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	ErrCurrentNotFound = errors.New("Coudln't find the current archive under current dir. Deleted, perhaps?")
+	ErrCurrentNotFound = errors.New("Couldn't find the current archive under current dir. Deleted, perhaps?")
 )
 
 func (gui *GUI) Loaded() bool {
@@ -56,7 +56,7 @@ func (gui *GUI) PreviousPage() {
 	}
 
 	n := 1
-	if gui.Config.DoublePage && gui.State.ArchivePos > 1 {
+	if gui.Config.DoublePage && gui.State.ArchivePos > 1 && gui.forceSinglePage() == false {
 		n = 2
 	}
 
@@ -66,11 +66,6 @@ func (gui *GUI) PreviousPage() {
 	}
 
 	gui.SetPage(gui.State.ArchivePos - n)
-
-	if (gui.Config.DoublePage && gui.forceSinglePage()) && gui.State.Archive.Len()-gui.State.ArchivePos > 1 {
-		// FIXME
-		gui.NextPage()
-	}
 }
 
 func (gui *GUI) NextPage() {
@@ -118,8 +113,9 @@ func (gui *GUI) LastPage() {
 	gui.SetPage(gui.State.Archive.Len() - 1)
 }
 
-// pass nil for pixbuf if the nth image is not loaded yet
-func (gui *GUI) ImageHash(n int, pixbuf *gdk.Pixbuf) (imgdiff.Hash, bool) {
+// ImageHash returns the cached dHash for page n, computing it on demand.
+// pixbuf is the *qt6.QImage for the page (or nil to load it fresh).
+func (gui *GUI) ImageHash(n int, pixbuf *qt6.QImage) (imgdiff.Hash, bool) {
 	if hash, ok := gui.State.ImageHash[n]; ok {
 		return hash, true
 	}
@@ -131,7 +127,7 @@ func (gui *GUI) ImageHash(n int, pixbuf *gdk.Pixbuf) (imgdiff.Hash, bool) {
 		}
 	}
 
-	return imgdiff.DHash(pixbuf), true
+	return imgdiff.Hash(imgdiff.DHash(pixbuf)), true
 }
 
 func (gui *GUI) NextScene() {
@@ -139,10 +135,10 @@ func (gui *GUI) NextScene() {
 		return
 	}
 
-	if gui.State.PixbufL == nil {
+	if gui.State.QImageL == nil {
 		return
 	}
-	hash := imgdiff.DHash(gui.State.PixbufL)
+	hash := imgdiff.DHash(gui.State.QImageL)
 
 	dn := gui.Config.SceneScanSkip
 	if gui.State.Archive.Len()-1-gui.State.ArchivePos <= dn {
@@ -154,7 +150,7 @@ func (gui *GUI) NextScene() {
 		if !ok {
 			return
 		}
-		distance := float32(imgdiff.Distance(hash, h)) / 64
+		distance := float32(imgdiff.Distance(imgdiff.Hash(hash), h)) / 64
 
 		if distance > gui.Config.ImageDiffThres {
 			if dn == 1 || n == gui.State.ArchivePos+1 {
@@ -162,13 +158,12 @@ func (gui *GUI) NextScene() {
 				return
 			}
 
-			// did we go too fast?
 			for l := n - 1; l >= gui.State.ArchivePos+1; l-- {
 				h, ok := gui.ImageHash(l, nil)
 				if !ok {
 					return
 				}
-				d := float32(imgdiff.Distance(hash, h)) / 64
+				d := float32(imgdiff.Distance(imgdiff.Hash(hash), h)) / 64
 				if d <= gui.Config.ImageDiffThres {
 					gui.setPage(l + 1)
 					return
@@ -184,10 +179,10 @@ func (gui *GUI) PreviousScene() {
 		return
 	}
 
-	if gui.State.PixbufL == nil {
+	if gui.State.QImageL == nil {
 		return
 	}
-	hash := imgdiff.DHash(gui.State.PixbufL)
+	hash := imgdiff.DHash(gui.State.QImageL)
 
 	dn := gui.Config.SceneScanSkip
 	if gui.State.ArchivePos <= dn {
@@ -199,7 +194,7 @@ func (gui *GUI) PreviousScene() {
 		if !ok {
 			return
 		}
-		distance := float32(imgdiff.Distance(hash, h)) / 64
+		distance := float32(imgdiff.Distance(imgdiff.Hash(hash), h)) / 64
 
 		if distance > gui.Config.ImageDiffThres {
 			if dn == 1 || n == gui.State.ArchivePos-1 {
@@ -207,13 +202,12 @@ func (gui *GUI) PreviousScene() {
 				return
 			}
 
-			// did we go too fast?
 			for l := n + 1; l <= gui.State.ArchivePos-1; l++ {
 				h, ok := gui.ImageHash(l, nil)
 				if !ok {
 					return
 				}
-				d := float32(imgdiff.Distance(hash, h)) / 64
+				d := float32(imgdiff.Distance(imgdiff.Hash(hash), h)) / 64
 				if d <= gui.Config.ImageDiffThres {
 					gui.setPage(l - 1)
 					return
@@ -227,28 +221,24 @@ func (gui *GUI) PreviousScene() {
 func (gui *GUI) NextArchive() bool {
 	newname, err := gui.archiveNameRel(1)
 	if err != nil {
-		//gui.ShowError(err.Error())
 		return false
 	}
 
-	gui.LoadArchive(newname)
+	gui.LoadArchive(newname, false)
 	return true
 }
 
 func (gui *GUI) PreviousArchive() bool {
 	newname, err := gui.archiveNameRel(-1)
 	if err != nil {
-		//gui.ShowError(err.Error())
 		return false
 	}
 
-	gui.LoadArchive(newname)
+	gui.LoadArchive(newname, false)
 	gui.LastPage()
 	return true
 }
 
-// Find out the index of current archive in the directory.
-// We need to do this everytime, since filesystem is mutable.
 func (gui *GUI) curArchive() (which int, err error) {
 	dir, name := filepath.Split(gui.State.ArchivePath)
 	if dir == "" {
@@ -274,9 +264,6 @@ func (gui *GUI) curArchive() (which int, err error) {
 	return
 }
 
-// Assuming that current archive is the 0th one in the directory,
-// get the name of the ith archive.
-// TODO(utkan): Use inotify to avoid obtaining list from the scratch all the time.
 func (gui *GUI) archiveNameRel(i int) (newname string, err error) {
 	dir, _ := filepath.Split(gui.State.ArchivePath)
 	if dir == "" {
@@ -292,7 +279,7 @@ func (gui *GUI) archiveNameRel(i int) (newname string, err error) {
 
 	curarch, err := gui.curArchive()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	which := curarch + i

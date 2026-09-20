@@ -16,12 +16,8 @@
 package imgdiff
 
 import (
-	"github.com/gotk3/gotk3/gdk"
-	//"github.com/nfnt/resize"
-	"image"
-	"image/color"
+	"github.com/mappu/miqt/qt6"
 	"math/bits"
-	//"github.com/disintegration/imaging"
 )
 
 const (
@@ -41,68 +37,18 @@ func init() {
 	}
 }
 
-// type grayscaleImage {
-// 	int w
-// 	int h
-// 	data []byte
-// }
-//
-// func newGrayscaleImage(int w, h) grayscaleImage {
-// 	return grayscaleImage{
-// 		w: w,
-// 		h: h,
-// 		data: make([]byte, w*h, w*h)
-// 	}
-// }
-
-func pixbufToGrayscaleImage(p *gdk.Pixbuf) *image.Gray {
-	nchan := p.GetNChannels()
-	data := p.GetPixels()
-	w, h := p.GetWidth(), p.GetHeight()
-	rowstride := p.GetRowstride()
-	im := image.NewGray(image.Rect(0, 0, w, h))
-
-	if nchan == 1 {
-		for ih := 0; ih < h; ih++ {
-			for iw := 0; iw < w; iw++ {
-				y := data[ih*rowstride+iw*nchan]
-				im.SetGray(iw, ih, color.Gray{Y: y})
-			}
-		}
-	} else if nchan == 3 || nchan == 4 {
-		for ih := 0; ih < h; ih++ {
-			for iw := 0; iw < w; iw++ {
-				r := data[ih*rowstride+iw*nchan]
-				g := data[ih*rowstride+iw*nchan+1]
-				b := data[ih*rowstride+iw*nchan+2]
-				y := uint8((19595*uint32(r) + 38470*uint32(g) + 7471*uint32(b) + 1<<15) >> 16)
-				im.SetGray(iw, ih, color.Gray{Y: y})
-			}
-		}
-	} else {
-		panic("unknown image depth")
-	}
-
-	return im
-}
-
 // http://www.hackerfactor.com/blog/?/archives/529-Kind-of-Like-That.html
-func DHash(p *gdk.Pixbuf) Hash {
-	//im := resize.Resize(dhashImageWidth, dhashImageHeight, pixbufToGrayscaleImage(p), resize.Bilinear)
-	//gray := im.(*image.Gray)
-
-	//im := imaging.Resize(pixbufToGrayscaleImage(p), dhashImageWidth, dhashImageHeight, imaging.Linear)
-
-	q, err := p.ScaleSimple(dhashImageWidth, dhashImageHeight, gdk.INTERP_TILES)
-	if err != nil {
-		panic(err.Error())
-	}
-	gray := pixbufToGrayscaleImage(q)
+func DHash(p *qt6.QImage) Hash {
+	q := p.Scaled(dhashImageWidth, dhashImageHeight)
 
 	data := make([]byte, dhashImageWidth*dhashImageHeight, dhashImageWidth*dhashImageHeight)
 	for iy := 0; iy < dhashImageHeight; iy++ {
 		for ix := 0; ix < dhashImageWidth; ix++ {
-			data[iy*dhashImageWidth+ix] = gray.GrayAt(ix, iy).Y
+			v := q.Pixel(ix, iy)
+			r := (v >> 16) & 0xff
+			g := (v >> 8) & 0xff
+			b := v & 0xff
+			data[iy*dhashImageWidth+ix] = byte((19595*r + 38470*g + 7471*b + 1<<15) >> 16)
 		}
 	}
 
@@ -118,5 +64,4 @@ func DHash(p *gdk.Pixbuf) Hash {
 	}
 
 	return hash
-
 }
