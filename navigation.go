@@ -16,18 +16,12 @@
 package main
 
 import (
-	"errors"
 	"github.com/mappu/miqt/qt6"
 	"github.com/salviati/gomics/archive"
 	"github.com/salviati/gomics/imgdiff"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"reflect"
-)
-
-var (
-	ErrCurrentNotFound = errors.New("Couldn't find the current archive under current dir. Deleted, perhaps?")
 )
 
 func (gui *GUI) Loaded() bool {
@@ -107,9 +101,8 @@ func (gui *GUI) LastPage() {
 		return
 	}
 
-	if gui.Config.DoublePage && gui.State.Archive.Len() >= 2 {
-		gui.SetPage(gui.State.Archive.Len() - 2)
-	}
+	// The unconditional SetPage below lands on the last page; a prior call to
+	// Len()-2 was dead (always overwritten) and is gone.
 	gui.SetPage(gui.State.Archive.Len() - 1)
 }
 
@@ -218,78 +211,35 @@ func (gui *GUI) PreviousScene() {
 	}
 }
 
-func (gui *GUI) NextArchive() bool {
-	newname, err := gui.archiveNameRel(1)
+// NextArchive loads the archive after the current one in its directory.
+// ArchivePath is absolute (canonicalized at load time), so dir/name split
+// from it resolve independently of the process cwd. On a boundary or when
+// the current archive is gone it stays put and surfaces the reason.
+func (gui *GUI) NextArchive() error {
+	dir, name := filepath.Split(gui.State.ArchivePath)
+	newname, err := archive.ArchiveStep(dir, name, 1)
 	if err != nil {
-		return false
+		gui.ShowError(err.Error())
+		return err
 	}
 
 	gui.LoadArchive(newname, false)
-	return true
+	return nil
 }
 
-func (gui *GUI) PreviousArchive() bool {
-	newname, err := gui.archiveNameRel(-1)
+// PreviousArchive loads the archive before the current one and lands on its
+// last page. See NextArchive for the boundary / not-found handling.
+func (gui *GUI) PreviousArchive() error {
+	dir, name := filepath.Split(gui.State.ArchivePath)
+	newname, err := archive.ArchiveStep(dir, name, -1)
 	if err != nil {
-		return false
+		gui.ShowError(err.Error())
+		return err
 	}
 
 	gui.LoadArchive(newname, false)
 	gui.LastPage()
-	return true
-}
-
-func (gui *GUI) curArchive() (which int, err error) {
-	dir, name := filepath.Split(gui.State.ArchivePath)
-	if dir == "" {
-		dir, err = os.Getwd()
-		if err != nil {
-			return
-		}
-	}
-	anames, err := archive.ListArchives(dir)
-	if err != nil {
-		return
-	}
-
-	which = -1
-	for i := 0; i < len(anames); i++ {
-		if anames[i] == name {
-			which = i
-		}
-	}
-	if which == -1 {
-		return 0, ErrCurrentNotFound
-	}
-	return
-}
-
-func (gui *GUI) archiveNameRel(i int) (newname string, err error) {
-	dir, _ := filepath.Split(gui.State.ArchivePath)
-	if dir == "" {
-		dir, err = os.Getwd()
-		if err != nil {
-			return
-		}
-	}
-	anames, err := archive.ListArchives(dir)
-	if err != nil {
-		return
-	}
-
-	curarch, err := gui.curArchive()
-	if err != nil {
-		return "", err
-	}
-
-	which := curarch + i
-	if which < 0 || which >= len(anames) {
-		err = errors.New("No more archives in the directory")
-		return
-	}
-
-	newname = filepath.Join(dir, anames[which])
-	return
+	return nil
 }
 
 func (gui *GUI) SkipForward() {

@@ -99,37 +99,50 @@ func (p stringArray) Len() int           { return len(p) }
 func (p stringArray) Less(i, j int) bool { return strings.ToLower(p[i]) < strings.ToLower(p[j]) }
 func (p stringArray) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func ListArchives(dir string) (anames []string, err error) {
+var (
+	// ErrCurrentNotFound is returned by ArchiveStep when name is not one of
+	// dir's archives: a bare image file, or the archive was deleted out from
+	// under us.
+	ErrCurrentNotFound = errors.New("Couldn't find the current archive under current dir. Deleted, perhaps?")
+	// ErrNoMoreArchives is returned by ArchiveStep at a boundary: no archive
+	// lies offset steps past name in dir (no more to go to).
+	ErrNoMoreArchives = errors.New("No more archives in the directory")
+)
+
+// ListArchives returns the names of the archives under dir, i.e. regular
+// files whose extension is in ArchiveExtensions. Subdirectories are excluded
+// and entries that cannot be stat'ed (broken symlinks, vanished files) are
+// skipped rather than aborting the whole listing.
+func ListArchives(dir string) ([]string, error) {
 	file, err := os.Open(dir)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer file.Close()
 
 	fi, err := file.Stat()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if !fi.IsDir() {
-		err = errors.New(dir + " is not a directory!")
-		return
+		return nil, errors.New(dir + " is not a directory!")
 	}
 
 	names, err := file.Readdirnames(-1)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	anames = make([]string, 0, len(names))
+	anames := make([]string, 0, len(names))
 	for _, name := range names {
-		var fi os.FileInfo
-		fi, err = os.Stat(filepath.Join(dir, name))
+		fi, err := os.Stat(filepath.Join(dir, name))
 		if err != nil {
-			return
+			// Skip entries that vanish or are unresolvable rather than aborting.
+			continue
 		}
 
-		if !ExtensionMatch(name, ArchiveExtensions) && !fi.IsDir() {
+		if fi.IsDir() || !ExtensionMatch(name, ArchiveExtensions) {
 			// TODO(utkan): don't add empty archives
 			continue
 		}
@@ -138,7 +151,36 @@ func ListArchives(dir string) (anames []string, err error) {
 
 	sort.Sort(stringArray(anames)) // TODO(utkan): can use natsort for archives as well
 
-	return
+	return anames, nil
+}
+
+// ArchiveStep returns the path of the archive offset steps away from name in
+// dir: offset +1 is the next archive, -1 the previous. It lists dir once and
+// locates name, so a single listing serves both the lookup and the step. The
+// returned path is rooted at dir (which must already be absolute), so it
+// resolves independently of the process cwd.
+func ArchiveStep(dir, name string, offset int) (string, error) {
+	anames, err := ListArchives(dir)
+	if err != nil {
+		return "", err
+	}
+
+	cur := -1
+	for i, n := range anames {
+		if n == name {
+			cur = i
+		}
+	}
+	if cur == -1 {
+		return "", ErrCurrentNotFound
+	}
+
+	which := cur + offset
+	if which < 0 || which >= len(anames) {
+		return "", ErrNoMoreArchives
+	}
+
+	return filepath.Join(dir, anames[which]), nil
 }
 
 func LoadQImage(data []byte, ext string, autorotate bool) (*qt6.QImage, error) {

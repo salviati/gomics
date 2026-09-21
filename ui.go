@@ -173,9 +173,13 @@ func (gui *GUI) LoadArchive(path string, recordRecent bool) {
 		return
 	}
 
-	if len(gui.State.ArchivePath) > 0 {
-		// handle absolute/relative - LoadArchive keeps os.Chdir, so path resolves relative to archive dir
-		// but we need to handle absolute paths here
+	// Canonicalize to an absolute path up front so NewArchive, navigation
+	// listing, Recent Files and bookmarks all resolve identically regardless
+	// of the process cwd. Replaces the old os.Chdir quirk that moved the
+	// cwd into the archive dir and made a relative ArchivePath re-resolve
+	// against the wrong directory (breaking next/prev archive navigation).
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
 	}
 
 	if gui.Loaded() {
@@ -203,10 +207,6 @@ func (gui *GUI) LoadArchive(path string, recordRecent bool) {
 			start = i
 		}
 	}
-
-	// chdir into the archive's directory (a file's parent dir), so relative
-	// paths resolve against it, not the launch cwd.
-	os.Chdir(filepath.Dir(path))
 
 	gui.setPage(start)
 
