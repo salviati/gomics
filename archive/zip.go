@@ -44,11 +44,11 @@ func NewZip(name string) (*Zip, error) {
 	ar := new(Zip)
 
 	ar.name = filepath.Base(name)
-	ar.files = make([]*zip.File, 0, MaxArchiveEntries)
 	ar.reader, err = zip.OpenReader(name)
 	if err != nil {
 		return nil, err
 	}
+	ar.files = make([]*zip.File, 0, len(ar.reader.File))
 
 	for _, f := range ar.reader.File {
 		if ExtensionMatch(f.Name, ImageExtensions) == false {
@@ -58,6 +58,7 @@ func NewZip(name string) (*Zip, error) {
 	}
 
 	if len(ar.files) == 0 {
+		ar.reader.Close()
 		return nil, errors.New(ar.name + ": no images in the zip file")
 	}
 

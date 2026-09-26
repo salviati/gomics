@@ -93,12 +93,6 @@ func wrap(val, low, mod int) int {
 	return val
 }
 
-type stringArray []string
-
-func (p stringArray) Len() int           { return len(p) }
-func (p stringArray) Less(i, j int) bool { return strings.ToLower(p[i]) < strings.ToLower(p[j]) }
-func (p stringArray) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-
 var (
 	// ErrCurrentNotFound is returned by ArchiveStep when name is not one of
 	// dir's archives: a bare image file, or the archive was deleted out from
@@ -149,7 +143,7 @@ func ListArchives(dir string) ([]string, error) {
 		anames = append(anames, name)
 	}
 
-	sort.Sort(stringArray(anames)) // TODO(utkan): can use natsort for archives as well
+	sort.Sort(filenames(anames))
 
 	return anames, nil
 }
@@ -185,8 +179,10 @@ func ArchiveStep(dir, name string, offset int) (string, error) {
 
 func LoadQImage(data []byte, ext string, autorotate bool) (*qt6.QImage, error) {
 	buf := qt6.NewQBuffer()
+	defer buf.Delete()
 	buf.SetData(data)
 	reader := qt6.NewQImageReader2(buf.QIODevice)
+	defer reader.Delete()
 	if ext != "" {
 		reader.SetFormat([]byte(strings.TrimPrefix(ext, ".")))
 	}

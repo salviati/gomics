@@ -113,6 +113,9 @@
     <addaction name="actionFirst_page"/>
     <addaction name="actionLast_page"/>
     <addaction name="separator"/>
+    <addaction name="actionPrevious_Scene"/>
+    <addaction name="actionNext_scene"/>
+    <addaction name="separator"/>
     <addaction name="actionPrevious_archive"/>
     <addaction name="actionNext_archive"/>
     <addaction name="separator"/>

@@ -262,6 +262,7 @@ func (gui *GUI) blitImage(img *qt6.QImage, scale float64, x, y int) {
 	}
 
 	pix := qt6.QPixmap_FromImage(img)
+	defer deleteQPixmap(pix)
 	item := gui.Image.Scene().AddPixmap(pix)
 	item.SetPos2(float64(x), float64(y))
 
@@ -272,5 +273,6 @@ func (gui *GUI) blitImage(img *qt6.QImage, scale float64, x, y int) {
 	item.SetTransformationMode(mode)
 
 	t := blitTransform(img.Width(), img.Height(), scale, gui.Config.Rotation, gui.Config.HFlip, gui.Config.VFlip)
+	defer t.Delete()
 	item.SetTransform(t)
 }

@@ -15,10 +15,17 @@
 
 package main
 
+/*
+#include <malloc.h>
+*/
+import "C"
+
 import (
+	"runtime"
+	"runtime/debug"
+
 	"github.com/mappu/miqt/qt6"
 	"github.com/salviati/gomics/archive"
-	"runtime"
 )
 
 func min(a, b int) int {
@@ -68,6 +75,8 @@ func fit(sw, sh, fw, fh int) (int, int) {
 func gc() {
 	runtime.GC()
 	runtime.GC()
+	debug.FreeOSMemory()
+	C.malloc_trim(0)
 }
 
 func mustLoadQImage(data []byte) *qt6.QImage {
@@ -79,3 +88,17 @@ func mustLoadQImage(data []byte) *qt6.QImage {
 }
 
 var ImageExtensions = archive.ImageExtensions
+
+func deleteQImage(img *qt6.QImage) {
+	if img != nil {
+		runtime.SetFinalizer(img, nil)
+		img.Delete()
+	}
+}
+
+func deleteQPixmap(pix *qt6.QPixmap) {
+	if pix != nil {
+		runtime.SetFinalizer(pix, nil)
+		pix.Delete()
+	}
+}

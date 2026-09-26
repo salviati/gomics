@@ -118,6 +118,7 @@ func (gui *GUI) ImageHash(n int, pixbuf *qt6.QImage) (imgdiff.Hash, bool) {
 		if pixbuf, err = gui.State.Archive.Load(n, gui.Config.EmbeddedOrientation); err != nil {
 			return 0, false
 		}
+		defer deleteQImage(pixbuf)
 	}
 
 	return imgdiff.Hash(imgdiff.DHash(pixbuf)), true

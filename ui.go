@@ -135,6 +135,22 @@ func (gui *GUI) ShowError(msg string) {
 	gui.SetStatus(msg)
 }
 
+func (gui *GUI) deletePixmaps() {
+	if gui.State.QImageL != nil {
+		deleteQImage(gui.State.QImageL)
+		gui.State.QImageL = nil
+	}
+	if gui.State.QImageR != nil {
+		deleteQImage(gui.State.QImageR)
+		gui.State.QImageR = nil
+	}
+	if gui.State.GoToThumbnail != nil {
+		deleteQImage(gui.State.GoToThumbnail)
+		gui.State.GoToThumbnail = nil
+	}
+	gc()
+}
+
 func (gui *GUI) Close() {
 	if !gui.Loaded() {
 		return
@@ -155,9 +171,7 @@ func (gui *GUI) Close() {
 	vw, vh := gui.GetSize()
 	gui.Image.SetSceneRect2(0, 0, float64(vw), float64(vh))
 	gui.Image.Scene().Clear()
-	gui.State.QImageL = nil
-	gui.State.QImageR = nil
-	gui.State.GoToThumbnail = nil
+	gui.deletePixmaps()
 	gui.State.CursorLastMoved = time.Now()
 	gui.State.CursorHidden = false
 	gui.State.CursorForceShown = false
@@ -225,7 +239,7 @@ func (gui *GUI) LoadImage(n int) (*qt6.QImage, error) {
 		return nil, err
 	}
 
-	gui.State.ImageHash[n], _ = gui.ImageHash(n, nil)
+	gui.State.ImageHash[n], _ = gui.ImageHash(n, img)
 	return img, nil
 }
 
@@ -252,8 +266,7 @@ func (gui *GUI) SetPage(n int) {
 // clearDisplay resets the loaded-image state and clears the scene so no
 // stale image remains after a failed load.
 func (gui *GUI) clearDisplay() {
-	gui.State.QImageL = nil
-	gui.State.QImageR = nil
+	gui.deletePixmaps()
 	gui.Image.Scene().Clear()
 }
 
@@ -263,23 +276,22 @@ func (gui *GUI) setPage(n int) {
 	}
 
 	gui.State.ArchivePos = n
-	gui.State.QImageR = nil
+
+	gui.deletePixmaps()
 
 	var err error
-	if gui.State.QImageL, err = gui.LoadImage(n); err != nil {
+	gui.State.QImageL, err = gui.LoadImage(n)
+	if err != nil {
 		gui.clearDisplay()
 		return
 	}
 
-	gui.State.QImageR = nil
 	if gui.Config.DoublePage && !(gui.Config.SingleCover && n == 0) && n+1 < gui.State.Archive.Len() {
 		if img, err := gui.LoadImage(n + 1); err == nil {
 			gui.State.QImageR = img
 		}
 		// else: keep QR nil so Blit renders the left image only.
 	}
-
-	gc()
 
 	gui.Blit()
 	gui.StatusImage()
@@ -1102,7 +1114,7 @@ func (gui *GUI) setupActionShortcuts() {
 		gui.actionFit_to_height, gui.actionFullscreen, gui.actionRandom_ordering,
 		gui.actionV_flip, gui.actionH_flip, gui.actionManga_mode, gui.actionDouble_page,
 		gui.actionPrevious_page, gui.actionNext_page, gui.actionFirst_page,
-		gui.actionLast_page, gui.actionGo_to_page, gui.actionAdd_bookmark, gui.actionAbout,
+		gui.actionLast_page, gui.actionGo_to_page, gui.actionAdd_bookmark, gui.actionAbout, gui.actionZoom_100,
 	}
 	for _, a := range actions {
 		a.SetShortcutContext(qt6.WindowShortcut)
@@ -1225,8 +1237,10 @@ func (gui *GUI) syncUI() {
 
 func (gui *GUI) setupBackgroundColor() {
 	c := qt6.NewQColor()
+	defer c.Delete()
 	c.SetNamedColor(gui.Config.BackgroundColor)
 	brush := qt6.NewQBrush3(c)
+	defer brush.Delete()
 	gui.PreferencesUI.BackgroundColorButton.SetStyleSheet("background-color: " + c.Name() + ";")
 
 	if gui.Config.UseBackgroundColor {
@@ -1234,6 +1248,7 @@ func (gui *GUI) setupBackgroundColor() {
 	} else {
 		// Default dark background
 		brush := qt6.NewQBrush()
+		defer brush.Delete()
 		gui.Image.Scene().SetBackgroundBrush(brush)
 	}
 	// Mirror the background on the color button so it shows the current pick.
@@ -1270,12 +1285,14 @@ func (gui *GUI) showPreferences() {
 	gui.showCursorForDialog(func() {
 		gui.PreferencesUI.PreferencesDialog.Exec()
 	})
+	gc()
 }
 
 func (gui *GUI) showAbout() {
 	gui.showCursorForDialog(func() {
 		gui.AboutUI.AboutDialog.Exec()
 	})
+	gc()
 }
 
 func (gui *GUI) RunGoToDialog() {
@@ -1290,9 +1307,11 @@ func (gui *GUI) RunGoToDialog() {
 	gui.goToDialogLoadThumbnail()
 
 	res := gui.GoToUI.Dialog.Exec()
+	gui.GoToUI.GoToThumbnailImage.Scene().Clear()
 	if res == int(qt6.QDialog__Accepted) {
 		gui.SetPage(int(gui.GoToUI.GoToSpinButton.Value()) - 1)
 	}
+	gc()
 }
 
 func (gui *GUI) goToDialogLoadThumbnail() {
@@ -1307,6 +1326,7 @@ func (gui *GUI) goToDialogLoadThumbnail() {
 		gui.ShowError(err.Error())
 		return
 	}
+	defer deleteQImage(img)
 
 	thumbScene := gui.GoToUI.GoToThumbnailImage.Scene()
 	thumbScene.Clear()
@@ -1326,8 +1346,10 @@ func (gui *GUI) goToDialogLoadThumbnail() {
 		return
 	}
 	scaled := img.Scaled(scaledW, scaledH)
+	defer deleteQImage(scaled)
 
 	pix := qt6.QPixmap_FromImage(scaled)
+	defer deleteQPixmap(pix)
 	item := thumbScene.AddPixmap(pix)
 
 	// Center the item when it fits a dimension (offx/offy), and keep the

@@ -18,6 +18,7 @@ package imgdiff
 import (
 	"github.com/mappu/miqt/qt6"
 	"math/bits"
+	"runtime"
 )
 
 const (
@@ -40,6 +41,10 @@ func init() {
 // http://www.hackerfactor.com/blog/?/archives/529-Kind-of-Like-That.html
 func DHash(p *qt6.QImage) Hash {
 	q := p.Scaled(dhashImageWidth, dhashImageHeight)
+	defer func() {
+		runtime.SetFinalizer(q, nil)
+		q.Delete()
+	}()
 
 	data := make([]byte, dhashImageWidth*dhashImageHeight, dhashImageWidth*dhashImageHeight)
 	for iy := 0; iy < dhashImageHeight; iy++ {

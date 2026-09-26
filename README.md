@@ -65,12 +65,12 @@ Arch Linux users can alternatively install the AUR package `gomics-git`.
 
 ### Mouse
 
-| Action            | Description              |
-|-------------------|--------------------------|
-| Mouse drag        | Scroll the current image |
-| Mouse wheel       | Next/previous image      |
-| Mouse wheel+Ctrl  | Zoom in/out              |
-
+| Action        | Description              |
+|---------------|--------------------------|
+| Drag          | Scroll the current image |
+| Wheel         | Next/previous image      |
+| Ctrl+Wheel    | Zoom in/out              |
+| Middle button | Next archive             |
 
 
 ## License
