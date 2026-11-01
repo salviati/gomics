@@ -55,6 +55,7 @@ type GUI struct {
 	StatusParts      *StatusParts
 	watcher          *qt6.QFileSystemWatcher
 	dirChangeTimer   *qt6.QTimer
+	cursorTimer      *qt6.QTimer
 }
 
 var zoomLevels = []int{25, 33, 50, 66, 75, 100, 125, 150, 200, 300, 400, 800}
@@ -698,6 +699,9 @@ func (gui *GUI) SetSmartScroll(smartScroll bool) {
 func (gui *GUI) SetHideIdleCursor(hideIdleCursor bool) {
 	gui.Config.HideIdleCursor = hideIdleCursor
 	gui.PreferencesUI.HideIdleCursorCheckButton.SetChecked(hideIdleCursor)
+	if !hideIdleCursor && gui.State.CursorHidden {
+		gui.ShowCursor()
+	}
 }
 
 func (gui *GUI) SetEmbeddedOrientation(embeddedOrientation bool) {
@@ -714,7 +718,7 @@ var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 func (gui *GUI) UpdateCursorVisibility() bool {
 	cursorShouldBeHidden := false
 
-	if gui.Config.HideIdleCursor && !gui.State.CursorForceShown {
+	if gui.Config.HideIdleCursor && !gui.State.CursorForceShown && qt6.QGuiApplication_MouseButtons() == 0 {
 		cursorShouldBeHidden = time.Since(gui.State.CursorLastMoved).Seconds() > 1
 	}
 
@@ -730,12 +734,24 @@ func (gui *GUI) UpdateCursorVisibility() bool {
 }
 
 func (gui *GUI) HideCursor() {
-	gui.Image.SetCursor(qt6.NewQCursor2(qt6.BlankCursor))
+	blank := qt6.NewQCursor2(qt6.BlankCursor)
+	gui.Image.SetCursor(blank)
+	if vp := gui.Image.Viewport(); vp != nil {
+		vp.SetCursor(blank)
+	}
 	gui.State.CursorHidden = true
 }
 
 func (gui *GUI) ShowCursor() {
-	gui.Image.SetCursor(qt6.NewQCursor2(qt6.ArrowCursor))
+	arrow := qt6.NewQCursor2(qt6.ArrowCursor)
+	gui.Image.SetCursor(arrow)
+	if vp := gui.Image.Viewport(); vp != nil {
+		if gui.Image.DragMode() == qt6.QGraphicsView__ScrollHandDrag {
+			vp.SetCursor(qt6.NewQCursor2(qt6.OpenHandCursor))
+		} else {
+			vp.SetCursor(arrow)
+		}
+	}
 	gui.State.CursorHidden = false
 }
 
@@ -756,6 +772,7 @@ func (gui *GUI) showCursorForDialog(fn func()) {
 	gui.ShowCursor()
 	fn()
 	gui.State.CursorForceShown = false
+	gui.State.CursorLastMoved = time.Now()
 	// UpdateCursorVisibility will restore normal behavior
 }
 
@@ -955,9 +972,19 @@ func (gui *GUI) setupViewportInput() {
 	gui.MainWindow.OnDragMoveEvent(handleDragMove)
 	gui.MainWindow.OnDropEvent(handleDrop)
 
+	// Mouse tracking for cursor auto-hide
+	vp.SetMouseTracking(true)
+	if vp.Viewport() != nil {
+		vp.Viewport().SetMouseTracking(true)
+	}
+	gui.MainWindow.SetMouseTracking(true)
+
 	// Mouse press: middle=next-archive; LMB is handled by Qt (ScrollHandDrag).
 	vp.OnMousePressEvent(func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {
 		gui.State.CursorLastMoved = time.Now()
+		if gui.State.CursorHidden {
+			gui.ShowCursor()
+		}
 		switch event.Button() {
 		case qt6.LeftButton:
 			super(event)
@@ -969,6 +996,9 @@ func (gui *GUI) setupViewportInput() {
 	// Wheel: up=prev page, down=next page; Ctrl+wheel zooms in/out.
 	vp.OnWheelEvent(func(_ func(event *qt6.QWheelEvent), event *qt6.QWheelEvent) {
 		gui.State.CursorLastMoved = time.Now()
+		if gui.State.CursorHidden {
+			gui.ShowCursor()
+		}
 		ctrl := qt6.QGuiApplication_QueryKeyboardModifiers()&qt6.ControlModifier != 0
 		if ctrl {
 			if event.AngleDelta().Y() > 0 {
@@ -1046,6 +1076,9 @@ func (gui *GUI) setupViewportInput() {
 	vp.OnMouseMoveEvent(func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {
 		super(event)
 		gui.State.CursorLastMoved = time.Now()
+		if gui.State.CursorHidden {
+			gui.ShowCursor()
+		}
 	})
 
 	// Resize: relayout so the image stays centered and correctly sized
@@ -1056,23 +1089,25 @@ func (gui *GUI) setupViewportInput() {
 
 	// Enter/leave for cursor
 	vp.OnEnterEvent(func(_ func(event *qt6.QEnterEvent), event *qt6.QEnterEvent) {
+		gui.State.CursorLastMoved = time.Now()
 		if gui.State.CursorHidden {
-			gui.State.CursorForceShown = true
+			gui.ShowCursor()
 		}
 	})
 	vp.OnLeaveEvent(func(_ func(event *qt6.QEvent), event *qt6.QEvent) {
-		gui.State.CursorForceShown = false
+		if gui.State.CursorHidden {
+			gui.ShowCursor()
+		}
 	})
 }
 
 func (gui *GUI) setupCursorAutoHide() {
-	// Timer for cursor visibility
-	timer := qt6.NewQTimer()
-	timer.SetInterval(250)
-	timer.OnTimeout(func() {
+	gui.cursorTimer = qt6.NewQTimer()
+	gui.cursorTimer.SetInterval(250)
+	gui.cursorTimer.OnTimeout(func() {
 		gui.UpdateCursorVisibility()
 	})
-	timer.Start(250)
+	gui.cursorTimer.Start(250)
 }
 
 func (gui *GUI) setupPreferencesDialog() {
@@ -1436,7 +1471,10 @@ func (gui *GUI) openArchive() {
 	filter := fmt.Sprintf("All supported (%s);;Images (%s);;Archives (%s);;All Files (*)",
 		strings.Join(allGlobs, " "), strings.Join(imgGlobs, " "), strings.Join(arcGlobs, " "))
 
-	res := qt6.QFileDialog_GetOpenFileName4(gui.MainWindow.QWidget, "Open Archive", gui.Config.LastDirectory, filter)
+	var res string
+	gui.showCursorForDialog(func() {
+		res = qt6.QFileDialog_GetOpenFileName4(gui.MainWindow.QWidget, "Open Archive", gui.Config.LastDirectory, filter)
+	})
 	if res == "" {
 		return
 	}
@@ -1469,7 +1507,10 @@ func (gui *GUI) RunGoToDialog() {
 
 	gui.goToDialogLoadThumbnail()
 
-	res := gui.GoToUI.Dialog.Exec()
+	var res int
+	gui.showCursorForDialog(func() {
+		res = gui.GoToUI.Dialog.Exec()
+	})
 	gui.GoToUI.GoToThumbnailImage.Scene().Clear()
 	if res == int(qt6.QDialog__Accepted) {
 		gui.SetPage(int(gui.GoToUI.GoToSpinButton.Value()) - 1)
