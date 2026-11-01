@@ -53,6 +53,8 @@ type GUI struct {
 	zoomLevelActions []*qt6.QAction
 	rotationActions  []*qt6.QAction
 	StatusParts      *StatusParts
+	watcher          *qt6.QFileSystemWatcher
+	dirChangeTimer   *qt6.QTimer
 }
 
 var zoomLevels = []int{25, 33, 50, 66, 75, 100, 125, 150, 200, 300, 400, 800}
@@ -151,10 +153,99 @@ func (gui *GUI) deletePixmaps() {
 	gc()
 }
 
+func (gui *GUI) unwatchCurrentDirectory() {
+	if gui.watcher == nil {
+		return
+	}
+	dirs := gui.watcher.Directories()
+	if len(dirs) > 0 {
+		gui.watcher.RemovePaths(dirs)
+	}
+}
+
+func (gui *GUI) watchCurrentDirectory() {
+	if gui.watcher == nil {
+		return
+	}
+	gui.unwatchCurrentDirectory()
+
+	if !gui.Loaded() {
+		return
+	}
+
+	var dir string
+	if dirArchive, ok := gui.State.Archive.(*archive.Dir); ok {
+		dir = dirArchive.Path()
+	} else if gui.State.ArchivePath != "" {
+		fi, err := os.Stat(gui.State.ArchivePath)
+		if err == nil && fi.IsDir() {
+			dir = gui.State.ArchivePath
+		} else {
+			dir = filepath.Dir(gui.State.ArchivePath)
+		}
+	}
+
+	if dir != "" {
+		gui.watcher.AddPath(dir)
+	}
+}
+
+func (gui *GUI) RefreshCurrentDirectory() {
+	if !gui.Loaded() {
+		return
+	}
+
+	currentName := ""
+	if gui.State.Archive.Len() > 0 && gui.State.ArchivePos < gui.State.Archive.Len() {
+		currentName, _ = gui.State.Archive.Name(gui.State.ArchivePos)
+	}
+
+	changed, err := gui.State.Archive.Reload()
+	if err != nil || !changed {
+		return
+	}
+
+	if gui.State.Archive.Len() == 0 {
+		gui.Close()
+		gui.SetStatus("No images left in directory")
+		return
+	}
+
+	// Invalidate cached hashes because file indices may have shifted
+	gui.State.ImageHash = make(map[int]imgdiff.Hash)
+
+	pos := -1
+	if currentName != "" {
+		pos = gui.State.Archive.Locate(currentName)
+	}
+
+	if pos >= 0 {
+		gui.State.ArchivePos = pos
+		vscroll := gui.Image.VerticalScrollBar().Value()
+		hscroll := gui.Image.HorizontalScrollBar().Value()
+		gui.setPage(pos)
+		gui.Image.VerticalScrollBar().SetValue(vscroll)
+		gui.Image.HorizontalScrollBar().SetValue(hscroll)
+	} else {
+		pos = gui.State.ArchivePos
+		if pos >= gui.State.Archive.Len() {
+			pos = gui.State.Archive.Len() - 1
+		}
+		gui.setPage(pos)
+	}
+
+	// Ensure directory is still being watched (in case inotify watch was cleared)
+	if dirs := gui.watcher.Directories(); len(dirs) == 0 {
+		gui.watchCurrentDirectory()
+	}
+}
+
 func (gui *GUI) Close() {
 	if !gui.Loaded() {
 		return
 	}
+
+	gui.unwatchCurrentDirectory()
 
 	gui.State.Archive.Close()
 
@@ -227,6 +318,8 @@ func (gui *GUI) LoadArchive(path string, recordRecent bool) {
 	if recordRecent {
 		gui.updateRecentFiles(path)
 	}
+
+	gui.watchCurrentDirectory()
 }
 
 func (gui *GUI) LoadImage(n int) (*qt6.QImage, error) {
@@ -782,7 +875,22 @@ func (gui *GUI) initUI() {
 	gui.SetDoublePage(gui.Config.DoublePage)
 	gui.SetMangaMode(gui.Config.MangaMode)
 
+	// Watcher for automatic directory refresh
+	gui.setupDirectoryWatcher()
+
 	gui.MainWindow.Show()
+}
+
+func (gui *GUI) setupDirectoryWatcher() {
+	gui.watcher = qt6.NewQFileSystemWatcher()
+	gui.dirChangeTimer = qt6.NewQTimer()
+	gui.dirChangeTimer.SetSingleShot(true)
+	gui.dirChangeTimer.OnTimeout(func() {
+		gui.RefreshCurrentDirectory()
+	})
+	gui.watcher.OnDirectoryChanged(func(path string) {
+		gui.dirChangeTimer.Start(200)
+	})
 }
 
 func (gui *GUI) setupViewportInput() {
@@ -791,6 +899,61 @@ func (gui *GUI) setupViewportInput() {
 	// Image.Viewport() returns an internally-created QWidget that is not
 	// overridable, so all event slots are wired on gui.Image instead.
 	vp := gui.Image
+
+	// Double click toggles fullscreen
+	handleDoubleClick := func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {
+		if event.Button() == qt6.LeftButton {
+			gui.SetFullscreen(!gui.Config.Fullscreen)
+			return
+		}
+		super(event)
+	}
+	vp.OnMouseDoubleClickEvent(handleDoubleClick)
+	gui.MainWindow.OnMouseDoubleClickEvent(handleDoubleClick)
+
+	// Drag & drop files / archives onto the app
+	gui.MainWindow.SetAcceptDrops(true)
+	vp.SetAcceptDrops(true)
+	vp.Viewport().SetAcceptDrops(true)
+
+	handleDragEnter := func(super func(event *qt6.QDragEnterEvent), event *qt6.QDragEnterEvent) {
+		if event.MimeData().HasUrls() {
+			event.AcceptProposedAction()
+			return
+		}
+		super(event)
+	}
+
+	handleDragMove := func(super func(event *qt6.QDragMoveEvent), event *qt6.QDragMoveEvent) {
+		if event.MimeData().HasUrls() {
+			event.AcceptProposedAction()
+			return
+		}
+		super(event)
+	}
+
+	handleDrop := func(super func(event *qt6.QDropEvent), event *qt6.QDropEvent) {
+		if event.MimeData().HasUrls() {
+			urls := event.MimeData().Urls()
+			if len(urls) > 0 {
+				path := urls[0].ToLocalFile()
+				if path != "" {
+					gui.LoadArchive(path, true)
+					event.AcceptProposedAction()
+					return
+				}
+			}
+		}
+		super(event)
+	}
+
+	vp.OnDragEnterEvent(handleDragEnter)
+	vp.OnDragMoveEvent(handleDragMove)
+	vp.OnDropEvent(handleDrop)
+
+	gui.MainWindow.OnDragEnterEvent(handleDragEnter)
+	gui.MainWindow.OnDragMoveEvent(handleDragMove)
+	gui.MainWindow.OnDropEvent(handleDrop)
 
 	// Mouse press: middle=next-archive; LMB is handled by Qt (ScrollHandDrag).
 	vp.OnMousePressEvent(func(super func(event *qt6.QMouseEvent), event *qt6.QMouseEvent) {

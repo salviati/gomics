@@ -109,6 +109,51 @@ func (d *Dir) Locate(name string) int {
 	return -1
 }
 
+func (d *Dir) Path() string {
+	return d.path
+}
+
+// Reload re-reads filenames from the directory and updates d.filenames.
+// It returns true if the list of image files changed.
+func (d *Dir) Reload() (bool, error) {
+	dir, err := os.Open(d.path)
+	if err != nil {
+		return false, err
+	}
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(-1)
+	if err != nil {
+		return false, err
+	}
+
+	newFiles := make(filenames, 0, len(names))
+	for _, name := range names {
+		if !ExtensionMatch(name, ImageExtensions) {
+			continue
+		}
+		newFiles = append(newFiles, name)
+	}
+
+	sort.Sort(newFiles)
+
+	if len(newFiles) == len(d.filenames) {
+		equal := true
+		for i := range newFiles {
+			if newFiles[i] != d.filenames[i] {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			return false, nil
+		}
+	}
+
+	d.filenames = newFiles
+	return true, nil
+}
+
 func (d *Dir) Close() error {
 	return nil
 }

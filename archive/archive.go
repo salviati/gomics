@@ -33,6 +33,7 @@ type Archive interface {
 	Len() int
 	Close() error
 	Locate(name string) int // index of file named `name`, or -1
+	Reload() (bool, error)
 }
 
 const (

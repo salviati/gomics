@@ -29,6 +29,7 @@ type Zip struct {
 	files  []*zip.File // File elements sorted by their Names
 	reader *zip.ReadCloser
 	name   string // Name of the Zip file
+	path   string
 }
 
 type zipfile []*zip.File
@@ -44,6 +45,7 @@ func NewZip(name string) (*Zip, error) {
 	ar := new(Zip)
 
 	ar.name = filepath.Base(name)
+	ar.path = name
 	ar.reader, err = zip.OpenReader(name)
 	if err != nil {
 		return nil, err
@@ -115,6 +117,45 @@ func (ar *Zip) Locate(name string) int {
 	return -1
 }
 
+func (ar *Zip) Reload() (bool, error) {
+	reader, err := zip.OpenReader(ar.path)
+	if err != nil {
+		return false, err
+	}
+	var newFiles []*zip.File
+	for _, f := range reader.File {
+		if !ExtensionMatch(f.Name, ImageExtensions) {
+			continue
+		}
+		newFiles = append(newFiles, f)
+	}
+	sort.Sort(zipfile(newFiles))
+
+	if len(newFiles) == len(ar.files) {
+		equal := true
+		for i := range newFiles {
+			if newFiles[i].Name != ar.files[i].Name || newFiles[i].CRC32 != ar.files[i].CRC32 {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			reader.Close()
+			return false, nil
+		}
+	}
+
+	if ar.reader != nil {
+		ar.reader.Close()
+	}
+	ar.reader = reader
+	ar.files = newFiles
+	return true, nil
+}
+
 func (ar *Zip) Close() error {
-	return ar.reader.Close()
+	if ar.reader != nil {
+		return ar.reader.Close()
+	}
+	return nil
 }
