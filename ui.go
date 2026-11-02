@@ -512,6 +512,7 @@ func (gui *GUI) Init() {
 func (gui *GUI) SetFullscreen(fullscreen bool) {
 	gui.Config.Fullscreen = fullscreen
 	if fullscreen {
+		gui.State.WasMaximized = gui.MainWindow.IsMaximized() || (gui.MainWindow.WindowState()&qt6.WindowMaximized != 0)
 		gui.statusbar.Hide()
 		gui.toolBar.Hide()
 		gui.menubar.Hide()
@@ -520,7 +521,11 @@ func (gui *GUI) SetFullscreen(fullscreen bool) {
 		gui.statusbar.Show()
 		gui.toolBar.Show()
 		gui.menubar.Show()
+		wasMax := gui.State.WasMaximized
 		gui.MainWindow.ShowNormal()
+		if wasMax {
+			gui.MainWindow.ShowMaximized()
+		}
 	}
 
 	// Fullscreen: image fills edge-to-edge (0 margins); windowed keeps 11px.
@@ -856,6 +861,25 @@ func (gui *GUI) initUI() {
 	gui.MainWindow.OnCloseEvent(func(super func(event *qt6.QCloseEvent), event *qt6.QCloseEvent) {
 		super(event)
 		gui.saveConfig()
+	})
+
+	// Track window maximized state across state changes
+	gui.MainWindow.OnChangeEvent(func(super func(event *qt6.QEvent), event *qt6.QEvent) {
+		super(event)
+		if event.Type() == qt6.QEvent__WindowStateChange {
+			isFS := gui.MainWindow.IsFullScreen()
+			if isFS != gui.Config.Fullscreen {
+				wce := qt6.UnsafeNewQWindowStateChangeEvent(event.UnsafePointer())
+				if isFS && (wce.OldState()&qt6.WindowMaximized != 0) {
+					gui.State.WasMaximized = true
+				}
+				gui.SetFullscreen(isFS)
+				return
+			}
+			if !isFS {
+				gui.State.WasMaximized = gui.MainWindow.IsMaximized()
+			}
+		}
 	})
 
 	// Connect menu actions

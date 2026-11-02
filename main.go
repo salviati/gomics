@@ -43,6 +43,7 @@ type State struct {
 	CursorLastMoved  time.Time
 	CursorHidden     bool
 	CursorForceShown bool
+	WasMaximized     bool
 }
 
 func main() {
